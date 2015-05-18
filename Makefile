@@ -1,4 +1,5 @@
 # Input files
+# The genome file should be put in the same directory as the makefile
 GENOME = genome.fasta
 GBK = genome.gbk
 # Directory containing the target genomes fasta files
@@ -19,9 +20,9 @@ $(TARGETSDIR): $(GENOME)
 
 KINPUT = kinput
 $(KINPUT): $(GENOME) $(TARGETSDIR)
-	echo -e $(GENOME)"\t"$(shell basename $(GENOME)) > $(KINPUT)
+	echo -e $(CURDIR)/$(GENOME)"\t"$(shell basename $(GENOME)) > $(KINPUT)
 	for genome in $$(ls $(TARGETSDIR)); do \
-		echo -e $(TARGETSDIR)/$$genome"\t"$$(basename $$genome) >> $(KINPUT) \
+		echo -e $(TARGETSDIR)/$$genome"\t"$$(basename $$genome) >> $(KINPUT); \
 	done
 
 KANNOTATED = kannotated
@@ -33,7 +34,7 @@ $(KOUT):
 
 KOUTPUT = $(KOUT)/SNPs_all_matrix
 $(KOUTPUT): $(GENOME) $(GBK) $(TARGETSDIR) $(KINPUT) $(KANNOTATED) $(KOUT)
-	kSNP3 -vcf -in $(KINPUT) -outdir $(KOUT) -k $(KMER) -CPU $(KCPU) -annotate $(KANNOTATED) -genbank $(GBK)
+	kSNP3 -vcf -in $(KINPUT) -outdir $(KOUT) -k $(KKMER) -CPU $(KCPU) -annotate $(KANNOTATED) -genbank $(GBK)
 
 all: ksnp
 ksnp: $(KOUTPUT)
