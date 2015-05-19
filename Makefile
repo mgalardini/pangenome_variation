@@ -65,9 +65,9 @@ $(MASKEDGENOME): $(GENOME) $(REPEATS)
 $(POUT)/%.vcf: $(TARGETSDIR)/% $(MASKEDGENOME)	
 	mkdir -p $(POUT)/$(basename $(notdir $<))
 	mkdir -p $(POUT)/$(basename $(notdir $<))/input
-	cp $(MASKEDGENOME) $(POUT)/$(basename $(notdir $<))/input
+	cp $(MASKEDGENOME) $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME))
 	cp $< $(POUT)/$(basename $(notdir $<))/input
-	$(PARSNP)/parsnp -r genomes/$(GENOME) -d genomes -p $(PCPU) -v -c -o $(POUT)/$(basename $(notdir $<))/output
+	$(PARSNP)/parsnp -r $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME)) -d $(POUT)/$(basename $(notdir $<))/input -p $(PCPU) -v -c -o $(POUT)/$(basename $(notdir $<))/output
 	harvesttools -i $(POUT)/$(basename $(notdir $<))/output/parsnp.ggr -V $@
 
 all: ksnp
