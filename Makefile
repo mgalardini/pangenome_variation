@@ -27,6 +27,14 @@ JAVAMEM = 24
 READSDIR = $(CURDIR)/reads
 READ1 = READ1.txt.gz
 READ2 = READ2.txt.gz
+# Proteome fasta files directory
+PROTEOMEDIR = $(CURDIR)/proteomes
+# Output dir for LS-BSR on reference genes
+REFERENCEDIR = $(CURDIR)/lreference
+# Output dir for LS-BSR on all genes
+ALLDIR = $(CURDIR)/lall
+# DIrectory where the usearch binary is
+USEARCHDIR = $(SOFTDIR)/usearch
 
 # Parameters
 # kSNP CPUs
@@ -38,6 +46,8 @@ KKMER = 19
 PCPU = 1
 # Reads mapping CPUs
 MCPU = 2
+# LS-BSR CPUS
+LCPU = 20
 # Maximum coverage (for downsampling)
 MAXCOVERAGE = 100
 SEED = 100
@@ -54,7 +64,10 @@ PLOIDY = 1
 $(TARGETSDIR): $(GENOME)
 	mkdir -p $(TARGETSDIR)
 
-# kSNP
+##################################
+## k-mer variant calling (kSNP) ##
+##################################
+
 KINPUT = kinput
 $(KINPUT): $(GENOME) $(TARGETSDIR)
 	echo -e $(CURDIR)/$(GENOME)"\t"$(shell basename $(GENOME)) > $(KINPUT)
@@ -73,7 +86,10 @@ KOUTPUT = $(KOUT)/SNPs_all_matrix
 $(KOUTPUT): $(GENOME) $(GBK) $(TARGETSDIR) $(KINPUT) $(KANNOTATED) $(KOUT)
 	kSNP3 -vcf -in $(KINPUT) -outdir $(KOUT) -k $(KKMER) -CPU $(KCPU) -annotate $(KANNOTATED) -genbank $(GBK)
 
-# Pairwise parsnp
+#################################################
+## Alignment variant calling (pairwise parsnp) ##
+#################################################
+
 GENOMES = $(wildcard $(TARGETSDIR)/*)
 
 $(POUT):
@@ -100,7 +116,9 @@ $(POUT)/%.vcf: $(TARGETSDIR)/% $(MASKEDGENOME)
 	$(PARSNP)/parsnp -r $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME)) -d $(POUT)/$(basename $(notdir $<))/input -p $(PCPU) -v -c -o $(POUT)/$(basename $(notdir $<))/output
 	harvesttools -i $(POUT)/$(basename $(notdir $<))/output/parsnp.ggr -V $@
 
-# Pairwise reads alignment
+##############################
+## Pairwise reads alignment ##
+##############################
 
 # Available reads sets
 READS = $(wildcard $(READSDIR)/*)
@@ -154,10 +172,42 @@ $(MOUT)/%.vcf: $(READSDIR)/%
 	samtools index $(MOUT)/$(basename $(notdir $<))/realigned/aln.bam && \
 	freebayes -f $(GENOME) --ploidy $(PLOIDY) --theta $(THETA) --genotype-qualities --standard-filters $(MOUT)/$(basename $(notdir $<))/realigned/aln.bam > $(MOUT)/$(basename $(notdir $<))/raw.vcf && \
 	vcffilter $(FILTER) $(MOUT)/$(basename $(notdir $<))/raw.vcf > $@
-	
-all: ksnp parsnp map
+
+#######################################
+## Gene content variability (LS-BSR) ##
+#######################################
+
+$(REFERENCEDIR):
+	mkdir -p $(REFERENCEDIR)
+$(ALLDIR):
+	mkdir -p $(ALLDIR)
+
+# Reference proteome file
+REFERENCEFAA = $(REFERENCEDIR)/genome.pep
+$(REFERENCEFAA): $(GBK) $(REFERENCEDIR)
+	$(SRCDIR)/gbk2faa $(GBK) genome.tmp && \
+	$(SRCDIR)/remove_duplicates genome.tmp $(REFERENCEFAA) 
+
+# 1. Reference genes conservation
+CONSERVATION = $(REFERENCEDIR)/bsr_matrix_values.txt
+$(CONSERVATION): $(REFERENCEFAA) $(REFERENCEDIR)
+	cd $(REFERENCEDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(TARGETSDIR) -g $(REFERENCEFAA) -p $(LCPU)
+
+# 2. All genes conservation
+APPROXPANGENOME = $(ALLDIR)/bsr_matrix_values.txt
+$(APPROXPANGENOME): $(REFERENCEFAA) $(ALLDIR)
+	cat $(REFERENCEFAA) $(PROTEOMEDIR)/*.faa > $(ALLDIR)/all.faa && \
+	$(USEARCHDIR)/usearch -cluster_fast $(ALLDIR)/all.faa -id 0.9 -uc $(ALLDIR)/results.uc -centroids $(ALLDIR)/all.pep && \
+	cd $(REFERENCEDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(TARGETSDIR) -g all.pep -p $(LCPU)
+
+#########################
+## Targets definitions ##
+#########################
+
+all: ksnp parsnp map conservation
 ksnp: $(KOUTPUT)
 parsnp: $(PVCFS)
-map: $(MVCFS) 
+map: $(MVCFS)
+conservation: $(CONSERVATION) $(APPROXPANGENOME)
 
-.PHONY: all ksnp parsnp map
+.PHONY: all ksnp parsnp map conservation
