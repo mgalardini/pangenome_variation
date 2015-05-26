@@ -23,8 +23,8 @@ JAVAMEM = 24
 # Directory containing the genomes with paired-ends reads
 # Organized in sub-directories
 READSDIR = $(CURDIR)/reads
-READ1 = READ1.tar.gz
-READ2 = READ2.tar.gz
+READ1 = READ1.txt.gz
+READ2 = READ2.txt.gz
 
 # Parameters
 # kSNP CPUs
