@@ -101,7 +101,7 @@ $(POUT)/%.vcf: $(TARGETSDIR)/% $(MASKEDGENOME)
 # Pairwise reads alignment
 
 # Available reads sets
-READS = $(sort $(dir $(wildcard $(READSDIR)/*/)))
+READS = $(wildcard $(READSDIR)/*)
 
 MVCFS = $(foreach READ,$(READS),$(addprefix $(MOUT)/,$(addsuffix .vcf,$(notdir $(READ)))))
 
