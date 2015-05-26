@@ -1,0 +1,3 @@
+[submodule "LS-BSR"]
+	path = LS-BSR
+	url = https://github.com/jasonsahl/LS-BSR.git
