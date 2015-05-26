@@ -2,6 +2,8 @@
 # The genome file should be put in the same directory as the makefile
 GENOME = genome.fasta
 GBK = genome.gbk
+# Scripts directory
+SRCDIR = $(CURDIR)/src
 # Directory containing the target genomes fasta files
 TARGETSDIR = $(CURDIR)/genomes
 # Output directory for kSNP
