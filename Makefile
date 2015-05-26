@@ -136,7 +136,7 @@ $(MOUT)/%.vcf: $(READSDIR)/%
 	cp $(GENOME) $(MOUT)/$(basename $(notdir $<))/deduplicated/ && \
 	java -jar $(PICARDDIR)/CreateSequenceDictionary.jar R=$(MOUT)/$(basename $(notdir $<))/deduplicated/$(notdir $(GENOME)) \
 	    O=$(MOUT)/$(basename $(notdir $<))/deduplicated/$(notdir $(basename $(GENOME))).dict \
-	    GENOME_ASSEMBLY=genome SPECIES=$(SPECIES)
+	    GENOME_ASSEMBLY=genome SPECIES=$(SPECIES) && \
 	$(JAVA7) -Xmx$(JAVAMEM)g -jar $(GATKDIR)/GenomeAnalysisTK.jar \
 	   -T RealignerTargetCreator \
 	   -R $(MOUT)/$(basename $(notdir $<))/deduplicated/$(notdir $(GENOME)) \
