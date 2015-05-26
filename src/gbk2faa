@@ -1,0 +1,100 @@
+#!/usr/bin/env python
+
+# Copyright (C) <2015> EMBL-European Bioinformatics Institute
+
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Neither the institution name nor the name align_upstreams can
+# be used to endorse or promote products derived from this
+# software without prior written permission. For written
+# permission, please contact <marco@ebi.ac.uk>.
+
+# Products derived from this software may not be called
+# align_upstreams nor may align_upstreams appear in their names
+# without prior written permission of the developers.
+# You should have received a copy of the GNU General Public
+# License along with this program. If not, see
+# <http://www.gnu.org/licenses/>.
+
+__author__ = "Marco Galardini"
+__version__ = "0.0.1"
+
+def get_options():
+    import argparse
+
+    # create the top-level parser
+    description = "Extract protein sequences from a gbk file"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'gbk2faa')
+    parser.add_argument('ingbk', action='store',
+                        help='Input GenBank file')
+    parser.add_argument('outfaa', action='store',
+                        help='Output Fasta file')
+
+    parser.add_argument('--synonym', action='store_true',
+        default=False,
+        help='Use gene synonym identifier [Default: locus_tag]')
+    parser.add_argument('--prefix', action='store',
+        default='ECK',
+        help='Gene synonym prefix [Default: ECK]')
+    
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    from Bio import SeqIO
+    import sys
+    options = get_options()
+
+    # Open the output file
+    o = open(options.outfaa, 'w')
+
+    # Read the input gbk
+    for s in SeqIO.parse(options.ingbk, 'genbank'):
+        # Only CDS
+        for f in filter(lambda x: x.type == 'CDS',
+                        s.features):
+            # Name
+            if options.synonym:
+                # If there's no synonim available
+                # revert to the locus_tag
+                if 'gene_synonym' not in f.qualifiers:
+                    name = f.qualifiers['locus_tag'][0]
+                    sys.stderr.write('No gene synonym! Using locus_tag (%s)\n'
+                            %name)
+                else:
+                    name = list(filter(lambda x: x.strip().startswith(options.prefix),
+                            f.qualifiers['gene_synonym'][0].split(';')))[0].strip()
+            else:
+                # Try first with the locus_tag
+                # then the protein_id
+                try:
+                    name = f.qualifiers['locus_tag'][0]
+                except:
+                    name = f.qualifiers['protein_id'][0]
+
+            # Sequence
+            # if no sequence available, then it's really a pseudo-gene
+            # in principle could also be possible to derive the translated
+            # sequence from the nucleotide one, but it is *probably* safe
+            # to just ignore this gene
+            if 'translation' not in f.qualifiers:
+                sys.stderr.write('Gene %s has no translation!\n'%name)
+                continue
+            seq = f.qualifiers['translation'][0]
+
+            # Write
+            o.write('>%s\n%s\n'%(name, seq))
+
+    # Bye, come again
+    o.close()

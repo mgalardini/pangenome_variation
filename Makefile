@@ -35,7 +35,7 @@ KKMER = 19
 # parsnp CPUs
 PCPU = 1
 # Reads mapping CPUs
-MCPU = 20
+MCPU = 2
 # Maximum coverage (for downsampling)
 MAXCOVERAGE = 100
 SEED = 100

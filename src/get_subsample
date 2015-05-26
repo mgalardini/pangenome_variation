@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+# Copyright (C) <2015> EMBL-European Bioinformatics Institute
+
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Neither the institution name nor the name reads2snps
+# can be used to endorse or promote products derived from
+# this software without prior written permission.
+# For written permission, please contact <marco@ebi.ac.uk>.
+
+# Products derived from this software may not be called reads2snps
+# nor may reads2snps appear in their names without prior written
+# permission of the developers. You should have received a copy
+# of the GNU General Public License along with this program.
+# If not, see <http://www.gnu.org/licenses/>.
+
+__author__ = "Marco Galardini"
+__version__ = '0.1.0'
+
+def get_options():
+    import argparse
+    import sys
+
+    import numpy as np
+
+    # create the top-level parser
+    description = "Output how many reads have to be sampled"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'get_subsample')
+
+    parser.add_argument('fasta', action='store',
+                        help='Reference fasta file')
+    parser.add_argument('sequencing', action='store',
+                        type=int,
+                        help='Sequencing length')
+
+    parser.add_argument('--coverage', action='store',
+                        type=int,
+                        default=100,
+                        help='Maximum desired coverage [Default: 100X]')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    from Bio import SeqIO
+
+    seqs = {s for s in SeqIO.parse(options.fasta, 'fasta')}
+
+    coverage = float(options.sequencing)/sum([len(s) for s in seqs])
+
+    subsample = (options.sequencing * options.coverage)/coverage
+    if subsample > options.sequencing:
+        print('1')        
+    else:
+        print('%.2f'%(subsample/float(options.sequencing)))
