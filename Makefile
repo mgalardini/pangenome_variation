@@ -163,6 +163,7 @@ $(MOUT)/%.vcf: $(READSDIR)/% $(GINDEX)
 	java -jar $(PICARDDIR)/CreateSequenceDictionary.jar R=$(MOUT)/$(basename $(notdir $<))/deduplicated/$(notdir $(GENOME)) \
 	    O=$(MOUT)/$(basename $(notdir $<))/deduplicated/$(notdir $(basename $(GENOME))).dict \
 	    GENOME_ASSEMBLY=genome SPECIES=$(SPECIES) && \
+	samtools faidx $(MOUT)/$(basename $(notdir $<))/deduplicated/$(notdir $(GENOME)) && \
 	$(JAVA7) -Xmx$(JAVAMEM)g -jar $(GATKDIR)/GenomeAnalysisTK.jar \
 	   -T RealignerTargetCreator \
 	   -R $(MOUT)/$(basename $(notdir $<))/deduplicated/$(notdir $(GENOME)) \
