@@ -8,6 +8,8 @@ SRCDIR = $(CURDIR)/src
 FILESDIR = $(CURDIR)/files
 # Directory containing the target genomes fasta files
 TARGETSDIR = $(CURDIR)/genomes
+# GFF3 directory
+GFFDIR = $(CURDIR)/gff
 # Output directory for kSNP
 KOUT = $(CURDIR)/kout
 # Output directory for parsnp
@@ -43,6 +45,8 @@ USEARCHDIR = $(SOFTDIR)/usearch
 OMAOUT = $(CURDIR)/oout
 # Output dir for kmer counting
 KMOUT = $(CURDIR)/kmout
+# Output dir for roary
+RDIR = $(CURDIR)/roary
 
 # Parameters
 # kSNP CPUs
@@ -57,6 +61,8 @@ PCPU = 1
 MCPU = 2
 # LS-BSR CPUS
 LCPU = 20
+# ROARY CPUS
+RCPU = 30
 # OMA CPUS
 OCPU = 10
 # Maximum coverage (for downsampling)
@@ -203,14 +209,33 @@ $(REFERENCEFAA): $(GBK) $(REFERENCEDIR)
 # 1. Reference genes conservation
 CONSERVATION = $(REFERENCEDIR)/bsr_matrix_values.txt
 $(CONSERVATION): $(REFERENCEFAA) $(REFERENCEDIR)
+	-rm -rf $(TARGETSDIR)/joined
 	cd $(REFERENCEDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(TARGETSDIR) -g $(REFERENCEFAA) -p $(LCPU)
+	-rm -rf $(TARGETSDIR)/joined	
 
 # 2. All genes conservation
 APPROXPANGENOME = $(ALLDIR)/bsr_matrix_values.txt
 $(APPROXPANGENOME): $(REFERENCEFAA) $(ALLDIR)
+	-rm -rf $(TARGETSDIR)/joined
 	cat $(REFERENCEFAA) $(PROTEOMEDIR)/*.faa > $(ALLDIR)/all.faa && \
 	$(USEARCHDIR)/usearch -cluster_fast $(ALLDIR)/all.faa -id 0.9 -uc $(ALLDIR)/results.uc -centroids $(ALLDIR)/all.pep && \
 	cd $(ALLDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(TARGETSDIR) -g all.pep -p $(LCPU)
+	-rm -rf $(TARGETSDIR)/joined
+
+######################################
+## Gene content variability (Roary) ##
+######################################
+
+$(RDIR):
+	mkdir -p $(RDIR)
+
+REFERENCEGFF = $(GFFDIR)/genome.gff
+$(REFERENCEGFF): $(GBK)
+	src/gbk2gff $(GBK) $(REFERENCEGFF)
+
+ROARYOUT = $(RDIR)/gene_presence_absence.csv
+$(ROARYOUT): $(RDIR) $(REFERENCEGFF)
+	cd $(RDIR) && roary -p $(RCPU) $(GFFDIR)/*.gff
 
 #############################################
 ## Pairwise gene content variability (OMA) ##
@@ -281,12 +306,13 @@ $(KTABLE): $(KCOUNTS) $(REFERENCECOUNT)
 ## Targets definitions ##
 #########################
 
-all: ksnp parsnp map conservation oma kmers
+all: ksnp parsnp map conservation oma kmers roary
 ksnp: $(KOUTPUT)
 parsnp: $(PVCFS)
 map: $(MVCFS)
 conservation: $(CONSERVATION) $(APPROXPANGENOME)
 oma: $(OTSV)
 kmers: $(KTABLE)
+roary: $(ROARYOUT)
 
-.PHONY: all ksnp parsnp map conservation oma kmers
+.PHONY: all ksnp parsnp map conservation oma kmers roary
