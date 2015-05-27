@@ -17,7 +17,7 @@ MOUT = $(CURDIR)/mout
 # Directory where the parsnp binary is
 PARSNP = $(SOFTDIR)/Parsnp-Linux64-v1.2
 # Directory where the jellyfish binary is
-JELLYFISHDIR = $(SOFTDIR)/Jellyfish
+JELLYFISHDIR = $(SOFTDIR)/Jellyfish/bin
 # Directory where PICARD is
 PICARDDIR = $(SOFTDIR)/picard-tools-1.119
 # Directory for GATK
@@ -266,7 +266,7 @@ $(ALLGENOMES): $(GENOME)
 	cat $(GENOME) $(TARGETSDIR)/*.fasta > $(ALLGENOMES)
 
 $(KMOUT)/counts/%.txt: $(TARGETSDIR)/%.fasta $(KMOUT) $(ALLGENOMES) $(KMERS)
-	$(JELLYFISHDIR)jellyfish query $(KMOUT)/mers/$(basename $(notdir $<)).jf -s $(ALLGENOMES) | cut -d" " -f2 > $@
+	$(JELLYFISHDIR)/jellyfish query $(KMOUT)/mers/$(basename $(notdir $<)).jf -s $(ALLGENOMES) | cut -d" " -f2 > $@
 
 REFERENCECOUNT = $(KMOUT)/genome.txt
 $(REFERENCECOUNT): $(KMOUT) $(ALLGENOMES) $(REFERENCEKMER)
