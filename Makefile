@@ -4,6 +4,8 @@ GENOME = genome.fasta
 GBK = genome.gbk
 # Scripts directory
 SRCDIR = $(CURDIR)/src
+# Fles directory
+FILESDIR = $(CURDIR)/files
 # Directory containing the target genomes fasta files
 TARGETSDIR = $(CURDIR)/genomes
 # Output directory for kSNP
@@ -33,8 +35,10 @@ PROTEOMEDIR = $(CURDIR)/proteomes
 REFERENCEDIR = $(CURDIR)/lreference
 # Output dir for LS-BSR on all genes
 ALLDIR = $(CURDIR)/lall
-# DIrectory where the usearch binary is
+# Directory where the usearch binary is
 USEARCHDIR = $(SOFTDIR)/usearch
+# Output dir for pairwise oma runs
+OMAOUT = $(CURDIR)/oout
 
 # Parameters
 # kSNP CPUs
@@ -48,6 +52,8 @@ PCPU = 1
 MCPU = 2
 # LS-BSR CPUS
 LCPU = 20
+# OMA CPUS
+OCPU = 10
 # Maximum coverage (for downsampling)
 MAXCOVERAGE = 100
 SEED = 100
@@ -200,14 +206,41 @@ $(APPROXPANGENOME): $(REFERENCEFAA) $(ALLDIR)
 	$(USEARCHDIR)/usearch -cluster_fast $(ALLDIR)/all.faa -id 0.9 -uc $(ALLDIR)/results.uc -centroids $(ALLDIR)/all.pep && \
 	cd $(ALLDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(TARGETSDIR) -g all.pep -p $(LCPU)
 
+#############################################
+## Pairwise gene content variability (OMA) ##
+#############################################
+
+PROTEOMES = $(wildcard $(PROTEOMEDIR)/*)
+
+$(OMAOUT):
+	mkdir -p $(OMAOUT)
+
+OTSV = $(foreach PROTEOME,$(PROTEOMES),$(addprefix $(OMAOUT)/,$(addsuffix .tsv,$(notdir $(PROTEOME)))))
+
+OMAPARAMETERS = $(FILESDIR)/parameters.drw
+
+ORTHOXMLLIB = $(SRCDIR)/orthoxml.py
+$(ORTHOXMLLIB):
+	wget -O $(ORTHOXMLLIB) https://raw.githubusercontent.com/jhcepas/phylogenetic-XML-python-parsers/master/orthoxml.py
+
+$(OMAOUT)/%.tsv: $(PROTEOMEDIR)/% $(REFERENCEFAA) $(ORTHOXMLLIB) $(OMAOUT)
+	mkdir -p $(OMAOUT)/$(basename $(notdir $<)) && \
+	mkdir -p $(OMAOUT)/$(basename $(notdir $<))/DB && \
+	cp $(OMAPARAMETERS) $(OMAOUT)/$(basename $(notdir $<)) && \
+	cp $< $(OMAOUT)/$(basename $(notdir $<))/DB/target.fasta && \
+	cp $(REFERENCEFAA) $(OMAOUT)/$(basename $(notdir $<))/DB/reference.fasta && \
+	cd $(OMAOUT)/$(basename $(notdir $<)) && oma -n $(OCPU) && \
+       	python2 $(SRCDIR)/omah2tsv $(OMAOUT)/$(basename $(notdir $<))/Output/HierarchicalGroups.orthoxml $@
+
 #########################
 ## Targets definitions ##
 #########################
 
-all: ksnp parsnp map conservation
+all: ksnp parsnp map conservation oma
 ksnp: $(KOUTPUT)
 parsnp: $(PVCFS)
 map: $(MVCFS)
 conservation: $(CONSERVATION) $(APPROXPANGENOME)
+oma: $(OTSV)
 
-.PHONY: all ksnp parsnp map conservation
+.PHONY: all ksnp parsnp map conservation oma

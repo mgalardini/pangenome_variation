@@ -1,0 +1,129 @@
+#!/usr/bin/env python
+
+# Copyright (C) <2015> EMBL-European Bioinformatics Institute
+
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Neither the institution name nor the name 2015_stm_ec can
+# be used to endorse or promote products derived from this
+# software without prior written permission. For written
+# permission, please contact <marco@ebi.ac.uk>.
+
+# Products derived from this software may not be called
+# 2015_stm_ec nor may 2015_stm_ec appear in their names
+# without prior written permission of the developers.
+# You should have received a copy of the GNU General Public
+# License along with this program. If not, see
+# <http://www.gnu.org/licenses/>.
+
+__author__ = "Marco Galardini"
+__version__ = "0.0.1"
+
+def get_options():
+    import argparse
+
+    # create the top-level parser
+    description = "Parse a hierarchical OGs from OMA"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'omah2tsv')
+    parser.add_argument('inxml', action='store',
+                        help='Input orthoxml results file')
+    parser.add_argument('outtsv', action='store',
+                        help='Output tsv file')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+def getGeneRefs(group):
+    for subgroup in group.get_orthologGroup():
+        for rid in getGeneRefs(subgroup):
+            yield rid
+
+    for subgroup in group.get_paralogGroup():
+        for rid in getGeneRefs(subgroup):
+            yield rid
+
+    for r in group.get_geneRef():
+        yield r.id
+
+if __name__ == "__main__":
+    import sys
+    options = get_options()
+
+
+    try:
+        from orthoxml import parse
+    except ImportError:
+        sys.stderr.write('The orthoxml library is missing!\n')
+        sys.stderr.write('Try to download it from here: %s'
+           % 'https://raw.githubusercontent.com/jhcepas/'+
+             'phylogenetic-XML-python-parsers/master/orthoxml.py\n')
+        sys.exit(1)
+
+    b = parse(options.inxml)
+
+    gs = b.get_groups()
+
+    d = {}
+    seen = {}
+
+    f = open(options.outtsv, 'w')
+    f.write('#')
+    f.write('\t'.join(['orth_id', 'prot_id', 'org_id']))
+    f.write('\n')
+
+    # orth_id --> geneRefs
+    for g in gs.get_orthologGroup():
+        orth_id = g.id
+
+        d[orth_id] = {}
+
+        grefs = set()
+        # Recursvive search for geneRefs
+        for gref in getGeneRefs(g):
+            grefs.add(gref)
+            if gref in seen:
+                print('Already seen! %s'%gref)
+            seen[gref] = orth_id
+            
+            d[orth_id][gref] = None
+
+    i = 1
+
+    d1 = {}
+
+    for s in b.get_species():
+        sname = s.name
+
+        for db in s.get_database():
+            dg = db.get_genes()
+            for p in dg.get_gene():
+                prot_id = p.protId.split()[0]
+                gref = p.id
+
+                if gref not in seen:
+                    orth_id = 'UNIQUE%d'%i
+                    i += 1
+                    d1[orth_id] = {}
+                    d1[orth_id][prot_id] = sname
+                else:
+                    orth_id = seen[gref]
+                    d1[orth_id] = d1.get(orth_id, {})
+                    d1[orth_id][prot_id] = sname
+
+    for k in sorted(d1):
+        for p in d1[k]:
+            f.write('\t'.join([str(k), p, d1[k][p]]))
+            f.write('\n')
+
+    f.close()
