@@ -210,6 +210,8 @@ $(APPROXPANGENOME): $(REFERENCEFAA) $(ALLDIR)
 ## Pairwise gene content variability (OMA) ##
 #############################################
 
+# WARNING: this analysis also considers the paralogs
+
 PROTEOMES = $(wildcard $(PROTEOMEDIR)/*)
 
 $(OMAOUT):
