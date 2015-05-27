@@ -129,7 +129,7 @@ GINDEX = $(GENOME).bwt
 $(GINDEX): $(GENOME)
 	bwa index $(GENOME)
 
-$(MOUT)/%.vcf: $(READSDIR)/%
+$(MOUT)/%.vcf: $(READSDIR)/% $(GINDEX)
 	mkdir -p $(MOUT)/$(basename $(notdir $<))
 	mkdir -p $(MOUT)/$(basename $(notdir $<))/trimmed
 	mkdir -p $(MOUT)/$(basename $(notdir $<))/subsampled
@@ -198,7 +198,7 @@ APPROXPANGENOME = $(ALLDIR)/bsr_matrix_values.txt
 $(APPROXPANGENOME): $(REFERENCEFAA) $(ALLDIR)
 	cat $(REFERENCEFAA) $(PROTEOMEDIR)/*.faa > $(ALLDIR)/all.faa && \
 	$(USEARCHDIR)/usearch -cluster_fast $(ALLDIR)/all.faa -id 0.9 -uc $(ALLDIR)/results.uc -centroids $(ALLDIR)/all.pep && \
-	cd $(REFERENCEDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(TARGETSDIR) -g all.pep -p $(LCPU)
+	cd $(ALLDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(TARGETSDIR) -g all.pep -p $(LCPU)
 
 #########################
 ## Targets definitions ##
