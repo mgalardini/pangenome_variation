@@ -230,8 +230,8 @@ $(OMAOUT)/%.tsv: $(PROTEOMEDIR)/% $(REFERENCEFAA) $(ORTHOXMLLIB) $(OMAOUT)
 	mkdir -p $(OMAOUT)/$(basename $(notdir $<)) && \
 	mkdir -p $(OMAOUT)/$(basename $(notdir $<))/DB && \
 	cp $(OMAPARAMETERS) $(OMAOUT)/$(basename $(notdir $<)) && \
-	cp $< $(OMAOUT)/$(basename $(notdir $<))/DB/target.fasta && \
-	cp $(REFERENCEFAA) $(OMAOUT)/$(basename $(notdir $<))/DB/reference.fasta && \
+	cp $< $(OMAOUT)/$(basename $(notdir $<))/DB/target.fa && \
+	cp $(REFERENCEFAA) $(OMAOUT)/$(basename $(notdir $<))/DB/reference.fa && \
 	cd $(OMAOUT)/$(basename $(notdir $<)) && oma -n $(OCPU) && \
        	python2 $(SRCDIR)/omah2tsv $(OMAOUT)/$(basename $(notdir $<))/Output/HierarchicalGroups.orthoxml $@
 
