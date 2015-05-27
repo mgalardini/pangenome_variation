@@ -16,6 +16,8 @@ POUT = $(CURDIR)/pout
 MOUT = $(CURDIR)/mout
 # Directory where the parsnp binary is
 PARSNP = $(SOFTDIR)/Parsnp-Linux64-v1.2
+# Directory where the jellyfish binary is
+JELLYFISHDIR = $(SOFTDIR)/Jellyfish
 # Directory where PICARD is
 PICARDDIR = $(SOFTDIR)/picard-tools-1.119
 # Directory for GATK
@@ -39,6 +41,8 @@ ALLDIR = $(CURDIR)/lall
 USEARCHDIR = $(SOFTDIR)/usearch
 # Output dir for pairwise oma runs
 OMAOUT = $(CURDIR)/oout
+# Output dir for kmer counting
+KMOUT = $(CURDIR)/kmout
 
 # Parameters
 # kSNP CPUs
@@ -46,6 +50,7 @@ KCPU = 20
 # NOTE: optimal k-mer shoudld be derived from
 # a Kchooser run
 KKMER = 19
+KHASH = 6
 # parsnp CPUs
 PCPU = 1
 # Reads mapping CPUs
@@ -96,7 +101,7 @@ $(KOUTPUT): $(GENOME) $(GBK) $(TARGETSDIR) $(KINPUT) $(KANNOTATED) $(KOUT)
 ## Alignment variant calling (pairwise parsnp) ##
 #################################################
 
-GENOMES = $(wildcard $(TARGETSDIR)/*)
+GENOMES = $(wildcard $(TARGETSDIR)/*.fasta)
 
 $(POUT):
 	mkdir -p $(POUT)
@@ -108,13 +113,13 @@ $(REPEATS): $(GENOME)
 	show-coords -r -T out.delta -H | tail -n+2 > repeats.txt && \
 	awk '{print $$8"\t"$$1"\t"$$2}' repeats.txt > $(REPEATS)
 
-PVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .vcf,$(notdir $(GENOME)))))
+PVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .vcf,$(notdir $(basename $(GENOME))))))
 
 MASKEDGENOME = genome.masked.fasta
 $(MASKEDGENOME): $(GENOME) $(REPEATS)
 	bedtools maskfasta -fi $(GENOME) -bed $(REPEATS) -fo $(MASKEDGENOME)
 
-$(POUT)/%.vcf: $(TARGETSDIR)/% $(MASKEDGENOME)	
+$(POUT)/%.vcf: $(TARGETSDIR)/%.fasta $(MASKEDGENOME)	
 	mkdir -p $(POUT)/$(basename $(notdir $<))
 	mkdir -p $(POUT)/$(basename $(notdir $<))/input
 	cp $(MASKEDGENOME) $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME))
@@ -235,15 +240,53 @@ $(OMAOUT)/%.tsv: $(PROTEOMEDIR)/% $(REFERENCEFAA) $(ORTHOXMLLIB) $(OMAOUT)
 	cd $(OMAOUT)/$(basename $(notdir $<)) && oma -n $(OCPU) && \
        	python2 $(SRCDIR)/omah2tsv $(OMAOUT)/$(basename $(notdir $<))/Output/HierarchicalGroups.orthoxml $@
 
+####################
+## K-mer counting ##
+####################
+
+GENOMES = $(wildcard $(TARGETSDIR)/*.fasta)
+NAMES = $(foreach GENOME,$(GENOMES),$(notdir $(basename $(GENOME))))
+KMERS = $(foreach GENOME,$(GENOMES),$(addprefix $(KMOUT)/mers/,$(addsuffix .jf,$(notdir $(basename $(GENOME))))))
+KCOUNTS = $(foreach GENOME,$(GENOMES),$(addprefix $(KMOUT)/counts/,$(addsuffix .txt,$(notdir $(basename $(GENOME))))))
+
+$(KMOUT):
+	mkdir -p $(KMOUT) && \
+	mkdir -p $(KMOUT)/mers && \
+	mkdir -p $(KMOUT)/counts
+
+$(KMOUT)/mers/%.jf: $(TARGETSDIR)/%.fasta $(KMOUT)
+	$(JELLYFISHDIR)/jellyfish count -m $(KKMER) -s $(KHASH)M $< -o $@
+
+REFERENCEKMER = $(KMOUT)/genome.jf
+$(REFERENCEKMER): $(KMOUT)
+	$(JELLYFISHDIR)/jellyfish count -m $(KKMER) -s $(KHASH)M $(GENOME) -o $(REFERENCEKMER)
+
+ALLGENOMES = all.fasta
+$(ALLGENOMES): $(GENOME)
+	cat $(GENOME) $(TARGETSDIR)/*.fasta > $(ALLGENOMES)
+
+$(KMOUT)/counts/%.txt: $(TARGETSDIR)/%.fasta $(KMOUT) $(ALLGENOMES) $(KMERS)
+	$(JELLYFISHDIR)jellyfish query $(KMOUT)/mers/$(basename $(notdir $<)).jf -s $(ALLGENOMES) | cut -d" " -f2 > $@
+
+REFERENCECOUNT = $(KMOUT)/genome.txt
+$(REFERENCECOUNT): $(KMOUT) $(ALLGENOMES) $(REFERENCEKMER)
+	$(JELLYFISHDIR)/jellyfish query $(REFERENCEKMER) -s $(ALLGENOMES) > $(REFERENCECOUNT)
+
+KTABLE = $(KMOUT)/kmers.txt
+$(KTABLE): $(KCOUNTS) $(REFERENCECOUNT)
+	echo -e $(notdir $(basename $(REFERENCECOUNT))) $(NAMES) > $(KTABLE)
+	paste $(REFERENCECOUNT) $(KCOUNTS) >> $(KTABLE)
+
 #########################
 ## Targets definitions ##
 #########################
 
-all: ksnp parsnp map conservation oma
+all: ksnp parsnp map conservation oma kmers
 ksnp: $(KOUTPUT)
 parsnp: $(PVCFS)
 map: $(MVCFS)
 conservation: $(CONSERVATION) $(APPROXPANGENOME)
 oma: $(OTSV)
+kmers: $(KTABLE)
 
-.PHONY: all ksnp parsnp map conservation oma
+.PHONY: all ksnp parsnp map conservation oma kmers
