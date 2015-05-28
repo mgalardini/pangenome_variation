@@ -50,5 +50,6 @@ if __name__ == "__main__":
     from Bio import SeqIO
 
     GFF.write(SeqIO.parse(options.gbk, 'genbank'),
-                open(options.gff, 'w'))
+                open(options.gff, 'w'),
+                include_fasta=True)
 
