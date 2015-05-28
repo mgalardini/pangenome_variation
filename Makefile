@@ -54,6 +54,8 @@ KCPU = 20
 # NOTE: optimal k-mer shoudld be derived from
 # a Kchooser run
 KKMER = 19
+# K-mer counting parameters
+WORD = 40
 KHASH = 6
 # parsnp CPUs
 PCPU = 1
@@ -281,11 +283,11 @@ $(KMOUT):
 	mkdir -p $(KMOUT)/counts
 
 $(KMOUT)/mers/%.jf: $(TARGETSDIR)/%.fasta $(KMOUT)
-	$(JELLYFISHDIR)/jellyfish count -m $(KKMER) -s $(KHASH)M $< -o $@
+	$(JELLYFISHDIR)/jellyfish count -m $(WORD) -s $(KHASH)M $< -o $@
 
 REFERENCEKMER = $(KMOUT)/genome.jf
 $(REFERENCEKMER): $(KMOUT)
-	$(JELLYFISHDIR)/jellyfish count -m $(KKMER) -s $(KHASH)M $(GENOME) -o $(REFERENCEKMER)
+	$(JELLYFISHDIR)/jellyfish count -m $(WORD) -s $(KHASH)M $(GENOME) -o $(REFERENCEKMER)
 
 ALLGENOMES = all.fasta
 $(ALLGENOMES): $(GENOME)
@@ -298,10 +300,12 @@ REFERENCECOUNT = $(KMOUT)/genome.txt
 $(REFERENCECOUNT): $(KMOUT) $(ALLGENOMES) $(REFERENCEKMER)
 	$(JELLYFISHDIR)/jellyfish query $(REFERENCEKMER) -s $(ALLGENOMES) > $(REFERENCECOUNT)
 
-KTABLE = $(KMOUT)/kmers.txt
+KTMP = $(KMOUT)/kmers.txt
+KTABLE = $(KTMP).gz
 $(KTABLE): $(KCOUNTS) $(REFERENCECOUNT)
-	echo -e $(notdir $(basename $(REFERENCECOUNT))) $(NAMES) > $(KTABLE)
-	paste $(REFERENCECOUNT) $(KCOUNTS) >> $(KTABLE)
+	echo -e $(notdir $(basename $(REFERENCECOUNT))) $(NAMES) > $(KTMP) && \
+	paste $(REFERENCECOUNT) $(KCOUNTS) >> $(KTMP) && \
+	gzip $(KTMP)
 
 #########################
 ## Targets definitions ##
