@@ -105,6 +105,11 @@ KOUTPUT = $(KOUT)/SNPs_all_matrix
 $(KOUTPUT): $(GENOME) $(GBK) $(TARGETSDIR) $(KINPUT) $(KANNOTATED) $(KOUT)
 	kSNP3 -vcf -in $(KINPUT) -outdir $(KOUT) -k $(KKMER) -CPU $(KCPU) -annotate $(KANNOTATED) -genbank $(GBK)
 
+KVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(KOUT)/,$(addsuffix .vcf,$(notdir $(basename $(GENOME))))))
+
+$(KOUT)/%.vcf: $(TARGETSDIR)/%.fasta $(KOUTPUT)
+	bsub -o /dev/null -e /dev/null "$(SRCDIR)/ksnp2vcf $(KOUT)/VCF.$(notdir $(GENOME)).vcf $(notdir $<) > $@"
+
 #################################################
 ## Alignment variant calling (pairwise parsnp) ##
 #################################################
@@ -303,7 +308,7 @@ $(REFERENCECOUNT): $(KMOUT) $(ALLGENOMES) $(REFERENCEKMER)
 KTMP = $(KMOUT)/kmers.txt
 KTABLE = $(KTMP).gz
 $(KTABLE): $(KCOUNTS) $(REFERENCECOUNT)
-	echo -e $(notdir $(basename $(REFERENCECOUNT))) $(NAMES) > $(KTMP) && \
+	echo -e "word" $(notdir $(basename $(REFERENCECOUNT))) $(NAMES) > $(KTMP) && \
 	paste $(REFERENCECOUNT) $(KCOUNTS) >> $(KTMP) && \
 	gzip $(KTMP)
 
@@ -312,7 +317,7 @@ $(KTABLE): $(KCOUNTS) $(REFERENCECOUNT)
 #########################
 
 all: ksnp parsnp map conservation oma kmers roary
-ksnp: $(KOUTPUT)
+ksnp: $(KVCFS)
 parsnp: $(PVCFS)
 map: $(MVCFS)
 conservation: $(CONSERVATION) $(APPROXPANGENOME)
