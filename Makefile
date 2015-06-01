@@ -138,7 +138,9 @@ $(POUT)/%.vcf: $(TARGETSDIR)/%.fasta $(MASKEDGENOME)
 	cp $(MASKEDGENOME) $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME))
 	cp $< $(POUT)/$(basename $(notdir $<))/input
 	$(PARSNP)/parsnp -r $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME)) -d $(POUT)/$(basename $(notdir $<))/input -p $(PCPU) -v -c -o $(POUT)/$(basename $(notdir $<))/output
-	harvesttools -i $(POUT)/$(basename $(notdir $<))/output/parsnp.ggr -V $@
+	harvesttools -i $(POUT)/$(basename $(notdir $<))/output/parsnp.ggr -V $@.tmp && \
+		$(SRCDIR)/parsnp2vcf $@.tmp $@ && \
+		rm $@.tmp
 
 ##############################
 ## Pairwise reads alignment ##
