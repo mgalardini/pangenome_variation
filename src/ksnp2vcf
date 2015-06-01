@@ -39,6 +39,10 @@ def get_options():
     parser.add_argument('strain', action='store',
                         help='Strain to be extracted')
 
+    parser.add_argument('--chrom', action='store',
+                        default=None,
+                        help='Chromosome ID [Default: use kSNP]')
+
     parser.add_argument('--version', action='version',
                          version='%(prog)s '+__version__)
 
@@ -58,7 +62,13 @@ if __name__ == "__main__":
 
     for r in vcf.Reader(open(options.vcf)):
         if r.genotype(options.strain).called and int(r.genotype(options.strain).gt_nums) > 0:
-            print('\t'.join([str(x) for x in [r.CHROM,
+            # Super-ugly exception about Chromosome ID
+            if options.chrom is not None:
+                c = options.chrom
+            else:
+                c = r.CHROM
+            #
+            print('\t'.join([str(x) for x in [c,
                 r.POS,
                 '.',
                 r.REF,

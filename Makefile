@@ -108,7 +108,7 @@ $(KOUTPUT): $(GENOME) $(GBK) $(TARGETSDIR) $(KINPUT) $(KANNOTATED) $(KOUT)
 KVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(KOUT)/,$(addsuffix .vcf,$(notdir $(basename $(GENOME))))))
 
 $(KOUT)/%.vcf: $(TARGETSDIR)/%.fasta $(KOUTPUT)
-	bsub -o /dev/null -e /dev/null "$(SRCDIR)/ksnp2vcf $(KOUT)/VCF.$(notdir $(GENOME)).vcf $(notdir $<) > $@"
+	$(SRCDIR)/ksnp2vcf $(KOUT)/VCF.$(notdir $(GENOME)).vcf $(notdir $<) --chrom $(shell grep VERSION $(GBK) | head -n 1 | awk '{print $$2}') > $@
 
 #################################################
 ## Alignment variant calling (pairwise parsnp) ##
