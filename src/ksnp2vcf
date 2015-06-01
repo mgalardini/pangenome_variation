@@ -56,13 +56,13 @@ if __name__ == "__main__":
     for l in vcf_header:
         print(l)
 
-    for r in vcf.Reader(options.vcf):
-        if r.genotype(options.strain).called and r.genotype(strain).gt_nums == '1':
+    for r in vcf.Reader(open(options.vcf)):
+        if r.genotype(options.strain).called and int(r.genotype(options.strain).gt_nums) > 0:
             print('\t'.join([str(x) for x in [r.CHROM,
                 r.POS,
                 '.',
                 r.REF,
-                n,
+                r.ALT[int(r.genotype(options.strain).gt_nums) - 1],
                 '.',
                 'PASS',
                 '.',]]))
