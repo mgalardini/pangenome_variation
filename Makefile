@@ -128,19 +128,16 @@ $(REPEATS): $(GENOME)
 
 PVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .vcf,$(notdir $(basename $(GENOME))))))
 
-MASKEDGENOME = genome.masked.fasta
-$(MASKEDGENOME): $(GENOME) $(REPEATS)
-	bedtools maskfasta -fi $(GENOME) -bed $(REPEATS) -fo $(MASKEDGENOME)
-
-$(POUT)/%.vcf: $(TARGETSDIR)/%.fasta $(MASKEDGENOME)	
+$(POUT)/%.vcf: $(TARGETSDIR)/%.fasta $(REPEATS)	$(GENOME)
 	mkdir -p $(POUT)/$(basename $(notdir $<))
 	mkdir -p $(POUT)/$(basename $(notdir $<))/input
-	cp $(MASKEDGENOME) $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME))
+	cp $(GENOME) $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME))
 	cp $< $(POUT)/$(basename $(notdir $<))/input
 	$(PARSNP)/parsnp -r $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME)) -d $(POUT)/$(basename $(notdir $<))/input -p $(PCPU) -v -c -o $(POUT)/$(basename $(notdir $<))/output
 	harvesttools -i $(POUT)/$(basename $(notdir $<))/output/parsnp.ggr -V $@.tmp && \
-		$(SRCDIR)/parsnp2vcf $@.tmp $@ && \
-		rm $@.tmp
+		bedtools subtract -a $@.tmp -b $(REPEATS) > $@.tmp2 && \
+		$(SRCDIR)/parsnp2vcf $@.tmp2 $@ && \
+		rm $@.tmp && rm $@.tmp2
 
 ##############################
 ## Pairwise reads alignment ##
