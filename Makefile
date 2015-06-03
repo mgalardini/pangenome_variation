@@ -217,19 +217,23 @@ $(REFERENCEFAA): $(GBK) $(REFERENCEDIR)
 # 1. Reference genes conservation
 CONSERVATION = $(REFERENCEDIR)/bsr_matrix_values.txt
 $(CONSERVATION): $(REFERENCEFAA) $(REFERENCEDIR)
-	-rm -rf $(TARGETSDIR)/joined
-	cd $(REFERENCEDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(TARGETSDIR) -g $(REFERENCEFAA) -p $(LCPU)
-	-rm -rf $(TARGETSDIR)/joined	
+	mkdir -p $(REFERENCEDIR).tmp && \
+		cp $(TARGETSDIR)/*.fasta $(REFERENCEDIR).tmp && \
+		cp $(GENOME) $(ALLDIR).tmp
+	cd $(REFERENCEDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(REFERENCEDIR).tmp -g $(REFERENCEFAA) -p $(LCPU)
+	-rm -rf $(REFERENCEDIR).tmp
 
 # 2. All genes conservation
 APPROXPANGENOME = $(ALLDIR)/bsr_matrix_values.txt
 $(APPROXPANGENOME): $(REFERENCEFAA) $(ALLDIR)
-	-rm -rf $(TARGETSDIR)/joined
+	mkdir -p $(ALLDIR).tmp && \
+		cp $(TARGETSDIR)/*.fasta $(ALLDIR).tmp && \
+		cp $(GENOME) $(ALLDIR).tmp
 	cat $(REFERENCEFAA) $(PROTEOMEDIR)/*.faa > $(ALLDIR)/all.faa && \
 	$(USEARCHDIR)/usearch -cluster_fast $(ALLDIR)/all.faa -id 0.9 -uc $(ALLDIR)/results.uc -centroids $(ALLDIR)/all.pep.tmp && \
 	$(SRCDIR)/remove_duplicates $(ALLDIR)/all.pep.tmp $(ALLDIR)/all.pep && \
-	cd $(ALLDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(TARGETSDIR) -g all.pep -p $(LCPU)
-	-rm -rf $(TARGETSDIR)/joined
+	cd $(ALLDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(ALLDIR).tmp -g all.pep -p $(LCPU)
+	-rm -rf $(ALLDIR).tmp
 
 ######################################
 ## Gene content variability (Roary) ##
