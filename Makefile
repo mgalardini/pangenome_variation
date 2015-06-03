@@ -14,6 +14,8 @@ GFFDIR = $(CURDIR)/gff
 KOUT = $(CURDIR)/kout
 # Output directory for parsnp
 POUT = $(CURDIR)/pout
+# Output directory for parsnp (all vs all)
+TOUT = $(CURDIR)/tout
 # Output directory for reads alignment
 MOUT = $(CURDIR)/mout
 # Directory where the parsnp binary is
@@ -311,6 +313,20 @@ $(KTABLE): $(KCOUNTS) $(REFERENCECOUNT)
 	paste $(REFERENCECOUNT) $(KCOUNTS) >> $(KTMP) && \
 	gzip $(KTMP)
 
+#################################
+## Strains tree (using parsnp) ##
+#################################
+
+$(TOUT):
+	mkdir -p $(TOUT)
+
+TREE = $(TOUT)/output/parsnp.tree
+$(TREE): $(GENOME) $(TOUT)
+	mkdir -p $(TOUT)/input
+	cp $(GENOME) $(TOUT)/input/
+	cp $(TARGETSDIR)/*.fasta $(TOUT)/input
+	$(PARSNP)/parsnp -r $(TOUT)/input/$(notdir $(GENOME)) -d $(TOUT)/input -p $(PCPU) -v -c -o $(TOUT)/output && rm -rf $(TOUT)/input/
+
 #########################
 ## Targets definitions ##
 #########################
@@ -323,5 +339,6 @@ conservation: $(CONSERVATION) $(APPROXPANGENOME)
 oma: $(OTSV)
 kmers: $(KTABLE)
 roary: $(ROARYOUT)
+tree: $(TREE)
 
-.PHONY: all ksnp parsnp map conservation oma kmers roary
+.PHONY: all ksnp parsnp map conservation oma kmers roary tree
