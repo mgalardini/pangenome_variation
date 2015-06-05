@@ -1,0 +1,111 @@
+#!/usr/bin/env python
+# Copyright (C) <2015> EMBL-European Bioinformatics Institute
+
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Neither the institution name nor the name pangenome_variation
+# can be used to endorse or promote products derived from
+# this software without prior written permission.
+# For written permission, please contact <marco@ebi.ac.uk>.
+
+# Products derived from this software may not be called pangenome_variation
+# nor may pangenome_variation appear in their names without prior written
+# permission of the developers. You should have received a copy
+# of the GNU General Public License along with this program.
+# If not, see <http://www.gnu.org/licenses/>.
+
+__author__ = "Marco Galardini"
+__version__ = '0.1.0'
+
+def get_options():
+    import argparse
+    import sys
+
+    # create the top-level parser
+    description = "From a bunch of VCFs, output the variants found by all methods"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'consensu_vcf')
+
+    parser.add_argument('mvcf', action='store',
+                        help='Align VCF (non-SNPs will be kept)')
+    parser.add_argument('kvcf', action='store',
+                        help='kSNP VCF')
+    parser.add_argument('pvcf', action='store',
+                        help='parSNP VCF')
+    
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    import vcf
+
+    options = get_options()
+
+    vcf_header = ['##fileformat=VCFv4.0',
+              '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO']
+
+    # Spit out the vcf header
+    for l in vcf_header:
+        print(l)
+    
+    try:
+        mr = vcf.Reader(open(options.mvcf))
+    except:
+        mr = None
+    # kSNP should always be present
+    kr = vcf.Reader(open(options.kvcf))
+    try:
+        pr = vcf.Reader(open(options.pvcf))
+    except:
+        pr = None
+
+    variants = (set(), set(), set())
+    if mr is not None:
+        for r in mr:
+            if not r.is_indel:
+                variants[0].add( (r.CHROM, r.POS, r.REF, str(r.ALT[0])) )
+            else:
+                # Multiple SNPs collapsed as one?
+                if len(str(r.REF)) == len(str(r.ALT[0])):
+                    for ref, alt, pos in zip(str(r.REF), str(r.ALT[0]), range(r.POS, r.POS+len(str(r.REF)))):
+                        if ref != alt:
+                            variants[0].add( (r.CHROM, pos, ref, alt) )
+                else:
+                    print('\t'.join([str(x) for x in [r.CHROM,
+                                r.POS,
+                                '.',
+                                r.REF,
+                                r.ALT[0],
+                                '.',
+                                'PASS',
+                                ]]))
+    for r in kr:
+        if not r.is_indel:
+            variants[1].add( (r.CHROM, r.POS, r.REF, str(r.ALT[0])) )
+    if pr is not None:
+        for r in pr:
+            if not r.is_indel:
+                variants[2].add( (r.CHROM, r.POS, r.REF, str(r.ALT[0])) )
+
+    # Use the intersection (when available)
+    if mr is not None and pr is not None:
+        for r in variants[0].intersection(variants[1]).intersection(variants[2]):
+            print('\t'.join([str(x) for x in [r[0],
+                        r[1],
+                        '.',
+                        r[2],
+                        r[3],
+                        '.',
+                        'PASS',
+                        ]]))
+            
