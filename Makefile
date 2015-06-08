@@ -108,9 +108,13 @@ $(KOUTPUT): $(GENOME) $(GBK) $(TARGETSDIR) $(KINPUT) $(KANNOTATED) $(KOUT)
 	kSNP3 -vcf -in $(KINPUT) -outdir $(KOUT) -k $(KKMER) -CPU $(KCPU) -annotate $(KANNOTATED) -genbank $(GBK)
 
 KVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(KOUT)/,$(addsuffix .vcf,$(notdir $(basename $(GENOME))))))
+KNONSYNVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(KOUT)/,$(addsuffix .nonsyn.vcf,$(notdir $(basename $(GENOME))))))
 
 $(KOUT)/%.vcf: $(TARGETSDIR)/%.fasta $(KOUTPUT)
 	$(SRCDIR)/ksnp2vcf $(KOUT)/VCF.$(notdir $(GENOME)).vcf $(notdir $<) --chrom $(shell grep VERSION $(GBK) | head -n 1 | awk '{print $$2}') > $@
+
+$(KOUT)/%.nonsyn.vcf: $(KOUT)/%.vcf $(GBK)
+	cat $< | python2 $(SRCDIR)/vcf2nonsyn $(GBK) - > $@
 
 #################################################
 ## Alignment variant calling (pairwise parsnp) ##
@@ -129,17 +133,21 @@ $(REPEATS): $(GENOME)
 	awk '{print $$8"\t"$$1"\t"$$2}' repeats.txt > $(REPEATS)
 
 PVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .vcf,$(notdir $(basename $(GENOME))))))
+PNONSYNVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .nonsyn.vcf,$(notdir $(basename $(GENOME))))))
 
 $(POUT)/%.vcf: $(TARGETSDIR)/%.fasta $(REPEATS)	$(GENOME)
 	mkdir -p $(POUT)/$(basename $(notdir $<))
 	mkdir -p $(POUT)/$(basename $(notdir $<))/input
-	cp $(GENOME) $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME))
-	cp $< $(POUT)/$(basename $(notdir $<))/input
-	$(PARSNP)/parsnp -r $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME)) -d $(POUT)/$(basename $(notdir $<))/input -p $(PCPU) -v -c -o $(POUT)/$(basename $(notdir $<))/output
-	harvesttools -i $(POUT)/$(basename $(notdir $<))/output/parsnp.ggr -V $@.tmp && \
-		bedtools subtract -a $@.tmp -b $(REPEATS) > $@.tmp2 && \
-		$(SRCDIR)/parsnp2vcf $@.tmp2 $@ && \
-		rm $@.tmp && rm $@.tmp2
+	echo cp $(GENOME) $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME))
+	echo cp $< $(POUT)/$(basename $(notdir $<))/input
+	echo $(PARSNP)/parsnp -r $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME)) -d $(POUT)/$(basename $(notdir $<))/input -p $(PCPU) -v -c -o $(POUT)/$(basename $(notdir $<))/output
+	harvesttools -i $(POUT)/$(basename $(notdir $<))/output/parsnp.ggr -V $@.vcf && \
+		bedtools subtract -a $@.vcf -b $(REPEATS) > $@.vcf.vcf && \
+		$(SRCDIR)/parsnp2vcf $@.vcf.vcf $@ && \
+		rm $@.vcf && rm $@.vcf.vcf
+
+$(POUT)/%.nonsyn.vcf: $(POUT)/%.vcf $(GBK)
+	cat $< | python2 $(SRCDIR)/vcf2nonsyn $(GBK) - > $@
 
 ##############################
 ## Pairwise reads alignment ##
@@ -149,6 +157,7 @@ $(POUT)/%.vcf: $(TARGETSDIR)/%.fasta $(REPEATS)	$(GENOME)
 READS = $(wildcard $(READSDIR)/*)
 
 MVCFS = $(foreach READ,$(READS),$(addprefix $(MOUT)/,$(addsuffix .vcf,$(notdir $(READ)))))
+MNONSYNVCFS = $(foreach READ,$(READS),$(addprefix $(MOUT)/,$(addsuffix .nonsyn.vcf,$(notdir $(READ)))))
 
 GINDEX = $(GENOME).bwt
 $(GINDEX): $(GENOME)
@@ -199,6 +208,17 @@ $(MOUT)/%.vcf: $(READSDIR)/% $(GINDEX)
 	freebayes -f $(GENOME) --ploidy $(PLOIDY) --theta $(THETA) --genotype-qualities --standard-filters $(MOUT)/$(basename $(notdir $<))/realigned/aln.bam > $(MOUT)/$(basename $(notdir $<))/raw.vcf && \
 	vcffilter $(FILTER) $(MOUT)/$(basename $(notdir $<))/raw.vcf > $@
 
+$(MOUT)/%.nonsyn.vcf: $(MOUT)/%.vcf $(GBK)
+	cat $< | python2 $(SRCDIR)/vcf2nonsyn $(GBK) - > $@
+
+#############################
+## Consensus variant calls ##
+#############################
+
+CVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(CONSENSUSOUT)/,$(addsuffix .vcf,$(notdir $(basename $(GENOME))))))
+
+$(CONSENSUSOUT)/%.vcf: $(TARGETSDIR)/%.fasta
+
 #######################################
 ## Gene content variability (LS-BSR) ##
 #######################################
@@ -219,7 +239,7 @@ CONSERVATION = $(REFERENCEDIR)/bsr_matrix_values.txt
 $(CONSERVATION): $(REFERENCEFAA) $(REFERENCEDIR)
 	mkdir -p $(REFERENCEDIR).tmp && \
 		cp $(TARGETSDIR)/*.fasta $(REFERENCEDIR).tmp && \
-		cp $(GENOME) $(ALLDIR).tmp
+		cp $(GENOME) $(REFERENCEDIR).tmp
 	cd $(REFERENCEDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(REFERENCEDIR).tmp -g $(REFERENCEFAA) -p $(LCPU)
 	-rm -rf $(REFERENCEDIR).tmp
 
@@ -339,10 +359,12 @@ all: ksnp parsnp map conservation oma kmers roary
 ksnp: $(KVCFS)
 parsnp: $(PVCFS)
 map: $(MVCFS)
+consensus: $(CVCFS) $(MVCFS) $(PVCFS) $(KVCFS)
 conservation: $(CONSERVATION) $(APPROXPANGENOME)
 oma: $(OTSV)
 kmers: $(KTABLE)
 roary: $(ROARYOUT)
 tree: $(TREE)
+nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS) $(KNONSYNVCFS)
 
-.PHONY: all ksnp parsnp map conservation oma kmers roary tree
+.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn

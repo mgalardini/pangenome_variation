@@ -50,6 +50,8 @@ if __name__ == "__main__":
 
     seqs = []
 
+    d = {}
+
     for s in GFF.parse(options.ingff):
         for f in s.features:
             if f.type != 'CDS':
