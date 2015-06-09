@@ -366,7 +366,7 @@ $(TREERESTRICTED): $(GENOME) $(TOUT)
 	cp $(GENOME) $(TOUT)/input_restricted/ && \
 	cp $(TARGETSDIR)/*.fasta $(TOUT)/input_restricted && \
 	for genome in $$(cat $(OUTGROUPS)); do rm $(TOUT)/input_restricted/$$genome.fasta; done && \
-	$(PARSNP)/parsnp -r $(TOUT)/input_restricted/$(notdir $(GENOME)) -d $(TOUT)/input -p $(PCPU) -v -c -o $(TOUT)/output_restricted && \
+	$(PARSNP)/parsnp -r $(TOUT)/input_restricted/$(notdir $(GENOME)) -d $(TOUT)/input_restricted -p $(PCPU) -v -c -o $(TOUT)/output_restricted && \
 	rm -rf $(TOUT)/input_restricted/
 
 #########################
