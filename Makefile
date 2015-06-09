@@ -49,6 +49,8 @@ OMAOUT = $(CURDIR)/oout
 KMOUT = $(CURDIR)/kmout
 # Output dir for roary
 RDIR = $(CURDIR)/roary
+# Outgroups (genomes that belong to another species or are very diverse)
+OUTGROUPS = outgroups.txt
 
 # Parameters
 # kSNP CPUs
@@ -268,6 +270,8 @@ $(REFERENCEGFF): $(GBK)
 
 ROARYOUT = $(RDIR)/gene_presence_absence.csv
 $(ROARYOUT): $(RDIR) $(REFERENCEGFF)
+	mkdir -p $(GFFDIR)/outgroups && \
+	for genome in $$(cat $(OUTGROUPS)); do mv $(GFFDIR)/$$genome.gff $(GFFDIR)/outgroups; done
 	cd $(RDIR) && roary -p $(RCPU) $(GFFDIR)/*.gff
 
 #############################################
@@ -346,10 +350,24 @@ $(TOUT):
 
 TREE = $(TOUT)/output/parsnp.tree
 $(TREE): $(GENOME) $(TOUT)
-	mkdir -p $(TOUT)/input
-	cp $(GENOME) $(TOUT)/input/
-	cp $(TARGETSDIR)/*.fasta $(TOUT)/input
-	$(PARSNP)/parsnp -r $(TOUT)/input/$(notdir $(GENOME)) -d $(TOUT)/input -p $(PCPU) -v -c -o $(TOUT)/output && rm -rf $(TOUT)/input/
+	mkdir -p $(TOUT)/input && \
+	cp $(GENOME) $(TOUT)/input/ && \
+	cp $(TARGETSDIR)/*.fasta $(TOUT)/input && \
+	$(PARSNP)/parsnp -r $(TOUT)/input/$(notdir $(GENOME)) -d $(TOUT)/input -p $(PCPU) -v -c -o $(TOUT)/output && \
+	rm -rf $(TOUT)/input/
+
+############################################
+## Restricted strains tree (using parsnp) ##
+############################################
+
+TREERESTRICTED = $(TOUT)/output_restricted/parsnp_restricted.tree
+$(TREERESTRICTED): $(GENOME) $(TOUT)
+	mkdir -p $(TOUT)/input_restricted && \
+	cp $(GENOME) $(TOUT)/input_restricted/ && \
+	cp $(TARGETSDIR)/*.fasta $(TOUT)/input_restricted && \
+	for genome in $$(cat $(OUTGROUPS)); do rm $(TOUT)/input_restricted/$$genome.fasta; done && \
+	$(PARSNP)/parsnp -r $(TOUT)/input_restricted/$(notdir $(GENOME)) -d $(TOUT)/input -p $(PCPU) -v -c -o $(TOUT)/output_restricted && \
+	rm -rf $(TOUT)/input_restricted/
 
 #########################
 ## Targets definitions ##
@@ -364,7 +382,7 @@ conservation: $(CONSERVATION) $(APPROXPANGENOME)
 oma: $(OTSV)
 kmers: $(KTABLE)
 roary: $(ROARYOUT)
-tree: $(TREE)
+tree: $(TREE) $(TREERESTRICTED)
 nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS) $(KNONSYNVCFS)
 
 .PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn
