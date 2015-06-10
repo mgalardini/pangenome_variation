@@ -281,7 +281,10 @@ $(REFERENCEGFF): $(GBK)
 GFFS = $(foreach GENOME,$(GENOMES),$(addprefix $(GFFDIR)/,$(addsuffix .gff,$(notdir $(basename $(GENOME))))))
 
 $(GFFDIR)/%.gff: $(TARGETSDIR)/%.fasta $(GFFDIR)
-	$(PROKKA)/prokka --cpus $(PROKKACPU) --outdir $(GFFDIR) --force --genus $(GENUS) --species $(SPECIES) --strain $(basename $(notdir $<)) --prefix $(basename $(notdir $<)) --compliant --rfam --locustag $(basename $(notdir $<)) $<
+	mkdir $(GFFDIR)/$(basename $(notdir $<))
+	-$(PROKKA)/prokka --cpus $(PROKKACPU) --outdir $(GFFDIR)/$(basename $(notdir $<)) --force --genus $(GENUS) --species $(SPECIES) --strain $(basename $(notdir $<)) --prefix $(basename $(notdir $<)) --compliant --locustag $(basename $(notdir $<)) $<
+	mv $(GFFDIR)/$(basename $(notdir $<))/$(basename $(notdir $<)).gff $(GFFDIR)
+	-rm -rf $(GFFDIR)/$(basename $(notdir $<))
 
 ROARYOUT = $(RDIR)/gene_presence_absence.csv
 $(ROARYOUT): $(RDIR) $(REFERENCEGFF) $(GFFS)
