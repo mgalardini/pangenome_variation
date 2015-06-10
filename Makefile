@@ -421,7 +421,6 @@ $(RPANGENOME): $(NPANGENOME) $(CONSERVATION) $(APPROXPANGENOME) $(ROARYOUT) $(TR
 	runipy -o $(NPANGENOME) && \
 	cd $(NOTEBOOKDIR) && ipython nbconvert --to=html $(notdir $(NPANGENOME)) --template html.tpl && cd $(CURDIR) && \
 	git add $(NPANGENOME) && \
-	git add $(RPANGENOME) && \
 	git commit -m "Updated pangenome report" && \
 	git push
 
