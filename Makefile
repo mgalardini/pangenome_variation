@@ -18,6 +18,8 @@ POUT = $(CURDIR)/pout
 TOUT = $(CURDIR)/tout
 # Output directory for reads alignment
 MOUT = $(CURDIR)/mout
+# Reports dir
+NOTEBOOKDIR = $(CURDIR)/notebooks
 # Directory where the prokka is
 PROKKA = $(SOFTDIR)/prokka-1.10/bin
 # Directory where the parsnp binary is
@@ -409,6 +411,20 @@ $(TFBSTABLE): $(TFBS) $(PSSM) $(GBK)
 	$(SRCDIR)/get_regulated_genes $(GBK) $(TFBS) --details > $(TFBSTABLE).tmp
 	$(SRCDIR)/correct_tfbstable $(TFBSTABLE).tmp $(PSSMDIR) $(GBK) > $(TFBSTABLE)
 
+########################
+## Reports generation ##
+########################
+
+NPANGENOME = $(NOTEBOOKDIR)/pangenome.ipynb
+RPANGENOME = $(NOTEBOOKDIR)/pangenome.html
+$(RPANGENOME): $(NPANGENOME) $(CONSERVATION) $(APPROXPANGENOME) $(ROARYOUT) $(TREE) $(TREERESTRICTED)
+	runipy -o $(NPANGENOME) && \
+	cd $(NOTEBOOKDIR) && ipython nbconvert --to=html $(notdir $(NPANGENOME)) --template html.tpl && cd $(CURDIR) && \
+	git add $(NPANGENOME) && \
+	git add $(RPANGENOME) && \
+	git commit -m "Updated pangenome report" && \
+	git push
+
 #########################
 ## Targets definitions ##
 #########################
@@ -425,5 +441,6 @@ roary: $(ROARYOUT)
 tree: $(TREE) $(TREERESTRICTED)
 nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS) $(KNONSYNVCFS)
 regulondb: $(TFBSTABLE)
+pangenome: $(RPANGENOME)
 
-.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn regulondb
+.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn regulondb pangenome
