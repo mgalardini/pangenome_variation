@@ -387,6 +387,28 @@ $(TREERESTRICTED): $(GENOME) $(TOUT)
 	$(PARSNP)/parsnp -r $(TOUT)/input_restricted/$(notdir $(GENOME)) -d $(TOUT)/input_restricted -p $(PCPU) -v -c -o $(TOUT)/output_restricted && \
 	rm -rf $(TOUT)/input_restricted/
 
+####################
+## RegulonDB data ##
+####################
+
+PSSMDIR = $(FILESDIR)/pssm
+$(PSSMDIR):
+	mkdir -p $(PSSMDIR)
+
+TFBS = $(FILESDIR)/BindingSiteSet.txt
+$(TFBS):
+	wget -O $(TFBS) http://regulondb.ccg.unam.mx/menu/download/datasets/files/BindingSiteSet.txt
+
+PSSM = $(FILESDIR)/PSSMSet.txt
+$(PSSM): $(PSSMDIR)
+	wget -O $(PSSM) http://regulondb.ccg.unam.mx/menu/download/datasets/files/PSSMSet.txt
+	$(SRCDIR)/retrieve_pssm $(PSSM) $(PSSMDIR)
+
+TFBSTABLE = $(FILESDIR)/tfbs.txt
+$(TFBSTABLE): $(TFBS) $(PSSM) $(GBK)
+	$(SRCDIR)/get_regulated_genes $(GBK) $(TFBS) --details > $(TFBSTABLE).tmp
+	$(SRCDIR)/correct_tfbstable $(TFBSTABLE).tmp $(PSSMDIR) $(GBK) > $(TFBSTABLE)
+
 #########################
 ## Targets definitions ##
 #########################
@@ -402,5 +424,6 @@ kmers: $(KTABLE)
 roary: $(ROARYOUT)
 tree: $(TREE) $(TREERESTRICTED)
 nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS) $(KNONSYNVCFS)
+regulondb: $(TFBSTABLE)
 
-.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn
+.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn regulondb

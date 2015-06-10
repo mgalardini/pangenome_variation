@@ -1,0 +1,165 @@
+#!/usr/bin/env python
+
+# Copyright (C) <2015> EMBL-European Bioinformatics Institute
+
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Neither the institution name nor the name align_upstreams can
+# be used to endorse or promote products derived from this
+# software without prior written permission. For written
+# permission, please contact <jacorvar@ebi.ac.uk>.
+
+# Products derived from this software may not be called
+# align_upstreams appear in their names
+# without prior written permission of the developers.
+# You should have received a copy of the GNU General Public
+# License along with this program. If not, see
+# <http://www.gnu.org/licenses/>.
+
+__author__ = "Juan A. Cordero Varela"
+
+################################################################################
+# Read options
+
+def getOptions():
+    import argparse
+    # create the top-level parser
+    description = ("Get the sequences from Regulon DB for PSSMs")
+    parser = argparse.ArgumentParser(description = description)
+    parser.add_argument('tfbs', action='store', help='TFBS table to be corrected')
+    parser.add_argument('pssm', action='store', help='Directory with PSSM sequences')
+    parser.add_argument('genome', action='store', help='Genbank file')
+    return parser.parse_args()
+
+################################################################################
+# Main
+
+import numpy as np
+
+def retrieve_instances(fname):
+    instances = []
+    if not os.path.isfile(fname):
+        return instances
+    for s in SeqIO.parse(fname, 'fasta'):
+        instances.append(s.seq)
+    return instances
+
+def get_motif(sequences):
+    from Bio import motifs
+    # Construct motif
+    m = motifs.create(sequences)
+    # Get alphabet
+    alphabet = m.alphabet.letters
+    # Get sequence type
+    seq_type = 'DNA'
+    return m, seq_type
+
+def scorePSSM(seqs, m, seq_type):
+    # Central residue index
+    central_ind = np.ceil(m.length/2.0)
+
+    # Get PWM:  cannot have log weights for mss
+    pwm = makePWM(m, seq_type=seq_type)
+
+    # Best/worst sequence match
+    best_score = score_array(pwm, pwm.consensus)
+    worst_score = score_array(pwm, pwm.anticonsensus)
+
+    # MATCH information content
+    m_ic = match_ic(pwm)
+    # Get vector of frequencies
+    score_arr = score_array(pwm, seqs)
+
+    scores = []
+    for sa in score_arr:
+        na = np.isnan(sa)
+        # Get information content of non-NA values
+        na = ~na
+        ic = m_ic[na]
+        # MSS score core
+        curr_score = np.nansum(ic * (sa[na]))
+        opt_score = np.nansum(ic * (best_score[na]))
+        w_score = np.nansum(ic * (worst_score[na]))
+        score_final = (curr_score - w_score) / (opt_score - w_score)
+        scores.append(score_final)
+    scores = np.array(scores)
+    return scores
+
+def makePWM(m, seq_type):
+    namespaces = dict(AA=('A', 'R', 'N', 'D', 'C', 'Q',
+                          'E', 'G', 'H', 'I', 'L', 'K',
+                          'M', 'F', 'P', 'S', 'T', 'W',
+                          'Y', 'V'),
+                      DNA=('A', 'T', 'G', 'C'),
+                      RNA=('A', 'U', 'G', 'C')) 
+    background = dict()
+    for key in namespaces[seq_type]:
+        background[key] = 1/float(len(namespaces[seq_type]))
+    pwm = m.counts.normalize(pseudocounts=background)
+    return pwm
+
+def score_array(pwm, seq):
+    for nt in range(len(seq) - pwm.length + 1):
+        if nt:
+            sc.append(pwm[seq[nt+pwm.length-1], pwm.length-1])
+            sc = sc[1:]
+            scores = np.vstack((scores, sc))
+        else:
+            sc = [pwm[j][i] for i, j in enumerate(seq[nt:(nt+pwm.length)])]
+            scores = np.array(sc)
+    return scores
+
+def match_ic(pwm, base=np.e):
+    if isinstance(pwm, dict):
+        pwm = np.array([pwm[k] for k in pwm.keys()])
+    N = pwm.shape[0]
+    if base == np.e:
+        ic = np.array([np.nansum(pwm[:, j] * np.log(N * pwm[:, j])) for j in range(pwm.shape[1])])
+    elif base == 2:
+        ic = np.array([np.nansum(pwm[:, j] * np.log2(N * pwm[:, j])) for j in range(pwm.shape[1])])
+    return (ic)
+
+if __name__ == "__main__":
+    import os
+    from Bio import SeqIO
+    options = getOptions()
+
+    # Read all the sequences from the gbk file
+    d = {}
+    for s in SeqIO.parse(options.genome, 'genbank'):
+        d[s.id] = s
+
+    tf = ''
+    for row in open(options.tfbs, 'r'):
+        if row[0] == '#':
+            continue
+        fields = row.rstrip().split('\t') 
+        if tf != fields[0]:
+            tf = fields[0]
+            instances = retrieve_instances(os.path.join(options.pssm, '%s.pssm.fasta'%tf))
+        if isinstance(instances, list) and len(instances) > 0:
+            m, seq_type = get_motif(instances)
+            start = int(fields[2]) - 10
+            end = int(fields[3]) + 10
+            s = d[fields[8]][start:end].seq
+            sc = scorePSSM(s, m, seq_type)
+            sc_rev = scorePSSM(s.reverse_complement(), m, seq_type)
+            if sc.max() >= sc_rev.max():
+                start += sc.argmax()
+            else:
+                start += len(s) - m.length - sc_rev.argmax()
+            end = start + m.length
+            fields[2] = str(start)
+            fields[3] = str(end)
+            print('\t'.join(fields))
+        else:
+            # TF not in the PSSMSet
+            print('\t'.join(fields))

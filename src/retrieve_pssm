@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+
+# Copyright (C) <2015> EMBL-European Bioinformatics Institute
+
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Neither the institution name nor the name align_upstreams can
+# be used to endorse or promote products derived from this
+# software without prior written permission. For written
+# permission, please contact <jacorvar@ebi.ac.uk>.
+
+# Products derived from this software may not be called
+# align_upstreams nor may align_upstreams appear in their names
+# without prior written permission of the developers.
+# You should have received a copy of the GNU General Public
+# License along with this program. If not, see
+# <http://www.gnu.org/licenses/>.
+
+__author__ = "Juan A. Cordero Varela"
+
+################################################################################
+# Read options
+
+def getOptions():
+    import argparse
+    # create the top-level parser
+    description = ("Retrieve the sequences used to construct the RegulonDB PSSMs")
+    parser = argparse.ArgumentParser(description = description)
+    parser.add_argument('pssm', action='store',
+                        help='File with all PSSMs from Regulon DB (PSSMSet.txt)')
+    parser.add_argument('odir', action='store',
+                        help='Output directory')
+    return parser.parse_args()
+
+################################################################################
+# Functions
+
+def retrieve_pssm(pssm_fn, odir='.'):
+    '''Create a file for each TF in regulonDB that is present in the PSSM file'''
+    import os
+    from Bio import SeqIO
+    from Bio.SeqRecord import SeqRecord
+    from Bio.Seq import Seq
+
+    motif = {}
+    motif_info = 0
+    name = ''
+    for row in open(pssm_fn):
+        if row != '\n':
+            if 'Transcription Factor Name:' in row:
+                if name in motif.keys():
+                    filename = os.path.join(odir, '%s.pssm.fasta'%name)
+                    SeqIO.write(motif[name], filename, 'fasta')
+                name = row.split()[-1]
+                if name == 'DgsA':
+                    name = 'Mlc'
+                if name != 'MqsAMqsR':
+                    motif[name] = []
+                    motif_info = 4
+            elif motif_info == 1:
+                seq = row.strip()
+                motif[name].append(SeqRecord(Seq(seq), name, '', ''))
+            else:
+                motif_info -= 1
+        else:
+            motif_info -= 1
+
+################################################################################
+# Main
+
+if __name__ == "__main__":
+    options = getOptions()
+    retrieve_pssm(options.pssm, options.odir)

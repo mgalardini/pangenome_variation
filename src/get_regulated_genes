@@ -1,0 +1,137 @@
+#!/usr/bin/env python
+
+# Copyright (C) <2015> EMBL-European Bioinformatics Institute
+
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Neither the institution name nor the name align_upstreams can
+# be used to endorse or promote products derived from this
+# software without prior written permission. For written
+# permission, please contact <marco@ebi.ac.uk>.
+
+# Products derived from this software may not be called
+# align_upstreams nor may align_upstreams appear in their names
+# without prior written permission of the developers.
+# You should have received a copy of the GNU General Public
+# License along with this program. If not, see
+# <http://www.gnu.org/licenses/>.
+
+__author__ = "Marco Galardini"
+__version__ = "0.0.1"
+
+def get_options():
+    import argparse
+
+    # create the top-level parser
+    description = "Get gene identifiers from RegulonDB"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'get_regulated_genes')
+    parser.add_argument('ingbk', action='store',
+                        help='Input GenBank file')
+    parser.add_argument('sites', action='store',
+                        help='RegulonDB binding sites')
+
+    parser.add_argument('--details', action='store_true',
+                        default=False,
+                        help='Output positioning details')
+    
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    from Bio import SeqIO
+    import sys
+    options = get_options()
+
+    # Read the input gbk
+    # Get a locus to gene name mapping
+    # This is ill-designed but necessary to extract
+    # the gene information from RegulonDB
+    locus_gene = {}
+    locus_position = {}
+    for s in SeqIO.parse(options.ingbk, 'genbank'):
+        for f in s.features:
+            if f.strand > 0:
+                strand = '+'
+            else:
+                strand = '-'
+            if 'gene' in f.qualifiers and 'locus_tag' in f.qualifiers:
+                locus_gene[
+                  f.qualifiers['gene'][0].lower()
+                  ] = f.qualifiers['locus_tag'][0]
+                locus_position[
+                  f.qualifiers['locus_tag'][0]
+                  ] = (str(f.location.start), str(f.location.end), strand, s.id)
+            # Also consider gene synonyms
+            if 'gene' in f.qualifiers and 'gene_synonym' in f.qualifiers:
+                for syn in f.qualifiers['gene_synonym'][0].split(';'):
+                    locus_gene[syn.strip().lower()] = f.qualifiers['locus_tag'][0]
+                    locus_position[
+                        f.qualifiers['locus_tag'][0]
+                        ] = (str(f.location.start), str(f.location.end), strand, s.id)
+
+    if options.details:
+        print('\t'.join( ('#regulator', 'locus',
+                          'tfbs start', 'tfbs end', 'tfbs strand',
+                          'gene start', 'gene end', 'gene strand',
+                          'sequence id') ))
+
+    # Read the almighty RegulonDB table
+    locus = set()
+    for l in open(options.sites):
+        if l.strip().startswith('#'):
+            continue
+       
+        s = l.rstrip().split('\t')
+
+        # TFBS without a position have to be skipped
+        if s[3] == '0' and s[4] == '0':
+            continue
+
+        gene_name = s[9]
+        # Gene name contains a "p" and possibly a number
+        # at the end
+        # Gonna remove it
+        try:
+            int(gene_name[-1])
+            gene_name = gene_name[:-2].lower()
+        except:
+            gene_name = gene_name[:-1].lower()
+        # Further (ugly) exceptions
+        gene_name = gene_name.rstrip('_1')
+        if gene_name == 'cas':
+            gene_name = 'casa'
+        if gene_name == 'furp':
+            gene_name = 'fur'
+        if gene_name == 'amp':
+            gene_name = 'ampd'
+        # However the gene name is corrected
+        # it shouldn't be longer than 4 letters
+        gene_name = gene_name[:4]
+        
+        if gene_name in locus_gene:
+            lc = locus_gene[gene_name]
+            locus.add(lc)
+        
+            # Give some more details, if needed
+            if options.details:
+                print('\t'.join( (s[1],
+                        lc, s[3], s[4], s[8],
+                        locus_position[lc][0],
+                        locus_position[lc][1],
+                        locus_position[lc][2],
+                        locus_position[lc][3]) ))
+
+    if not options.details:
+        for g in sorted(locus):
+            print(g)
