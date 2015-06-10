@@ -18,6 +18,8 @@ POUT = $(CURDIR)/pout
 TOUT = $(CURDIR)/tout
 # Output directory for reads alignment
 MOUT = $(CURDIR)/mout
+# Directory where the prokka is
+PROKKA = $(SOFTDIR)/prokka-1.10/bin
 # Directory where the parsnp binary is
 PARSNP = $(SOFTDIR)/Parsnp-Linux64-v1.2
 # Directory where the jellyfish binary is
@@ -53,6 +55,9 @@ RDIR = $(CURDIR)/roary
 OUTGROUPS = outgroups.txt
 
 # Parameters
+# Species (from prokka reannotation)
+GENUS = Escherichia
+SPECIES = coli
 # kSNP CPUs
 KCPU = 20
 # NOTE: optimal k-mer shoudld be derived from
@@ -71,6 +76,8 @@ LCPU = 20
 RCPU = 30
 # OMA CPUS
 OCPU = 10
+# Prokka CPUS
+PROKKACPU = 5
 # Maximum coverage (for downsampling)
 MAXCOVERAGE = 100
 SEED = 100
@@ -264,15 +271,23 @@ $(APPROXPANGENOME): $(REFERENCEFAA) $(ALLDIR)
 $(RDIR):
 	mkdir -p $(RDIR)
 
+$(GFFDIR):
+	mkdir -p $(GFFDIR)
+
 REFERENCEGFF = $(GFFDIR)/genome.gff
 $(REFERENCEGFF): $(GBK)
 	src/gbk2gff $(GBK) $(REFERENCEGFF)
 
+GFFS = $(foreach GENOME,$(GENOMES),$(addprefix $(GFFDIR)/,$(addsuffix .gff,$(notdir $(basename $(GENOME))))))
+
+$(GFFDIR)/%.gff: $(TARGETSDIR)/%.fasta $(GFFDIR)
+	$(PROKKA)/prokka --cpus $(PROKKACPU) --outdir $(GFFDIR) --force --genus $(GENUS) --species $(SPECIES) --strain $(basename $(notdir $<)) --prefix $(basename $(notdir $<)) --compliant --rfam --locustag $(basename $(notdir $<)) $<
+
 ROARYOUT = $(RDIR)/gene_presence_absence.csv
-$(ROARYOUT): $(RDIR) $(REFERENCEGFF)
+$(ROARYOUT): $(RDIR) $(REFERENCEGFF) $(GFFS)
 	mkdir -p $(GFFDIR)/outgroups && \
 	for genome in $$(cat $(OUTGROUPS)); do mv $(GFFDIR)/$$genome.gff $(GFFDIR)/outgroups; done
-	cd $(RDIR) && roary -p $(RCPU) $(GFFDIR)/*.gff
+	cd $(RDIR) && roary --group_limit 100000 -v -p $(RCPU) $(GFFDIR)/*.gff
 
 #############################################
 ## Pairwise gene content variability (OMA) ##
