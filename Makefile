@@ -424,6 +424,15 @@ $(RPANGENOME): $(NPANGENOME) $(CONSERVATION) $(APPROXPANGENOME) $(ROARYOUT) $(TR
 	git commit -m "Updated pangenome report" && \
 	git push
 
+NSNPS = $(NOTEBOOKDIR)/SNPs.ipynb
+RSNPS = $(NOTEBOOKDIR)/SNPs.html
+$(RSNPS): $(KVCFS) $(PVCFS) $(MVCFS) $(GBK) $(CONSERVATION)
+	runipy -o $(NSNPS) && \
+	cd $(NOTEBOOKDIR) && ipython nbconvert --to=html $(notdir $(NSNPS)) --template html.tpl && cd $(CURDIR) && \
+	git add $(NSNPS) && \
+	git commit -m "Updated snps report" && \
+	git push
+
 #########################
 ## Targets definitions ##
 #########################
@@ -441,5 +450,6 @@ tree: $(TREE) $(TREERESTRICTED)
 nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS) $(KNONSYNVCFS)
 regulondb: $(TFBSTABLE)
 pangenome: $(RPANGENOME)
+snps: $(RSNPS)
 
-.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn regulondb pangenome
+.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn regulondb pangenome snps
