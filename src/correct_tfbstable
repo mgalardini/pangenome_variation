@@ -91,7 +91,7 @@ def scorePSSM(seqs, m, seq_type):
         score_final = (curr_score - w_score) / (opt_score - w_score)
         scores.append(score_final)
     scores = np.array(scores)
-    return scores
+    return scores, sum(m_ic)
 
 def makePWM(m, seq_type):
     namespaces = dict(AA=('A', 'R', 'N', 'D', 'C', 'Q',
@@ -150,8 +150,8 @@ if __name__ == "__main__":
             start = int(fields[2]) - 10
             end = int(fields[3]) + 10
             s = d[fields[8]][start:end].seq
-            sc = scorePSSM(s, m, seq_type)
-            sc_rev = scorePSSM(s.reverse_complement(), m, seq_type)
+            sc, ic = scorePSSM(s, m, seq_type)
+            sc_rev, ic = scorePSSM(s.reverse_complement(), m, seq_type)
             if sc.max() >= sc_rev.max():
                 start += sc.argmax()
             else:
@@ -159,7 +159,11 @@ if __name__ == "__main__":
             end = start + m.length
             fields[2] = str(start)
             fields[3] = str(end)
-            print('\t'.join(fields))
+            score = str(max(sc.max(), sc_rev.max()))
+            fields.append(str(score))
+            fields.append(str(ic))
         else:
             # TF not in the PSSMSet
-            print('\t'.join(fields))
+            fields += 'NA'
+            fields += 'NA'
+        print('\t'.join(fields))
