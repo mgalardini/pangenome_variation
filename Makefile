@@ -433,6 +433,15 @@ $(RSNPS): $(KVCFS) $(PVCFS) $(MVCFS) $(GBK) $(CONSERVATION)
 	git commit -m "Updated snps report" && \
 	git push
 
+NSNPSM = $(NOTEBOOKDIR)/SNPs_matrix.ipynb
+RSNPSM = $(NOTEBOOKDIR)/SNPs_matrix.html
+$(RSNPSM): $(PVCFS) $(GBK) $(CONSERVATION) $(TREERESTRICTED)
+	runipy -o $(NSNPSM) && \
+	cd $(NOTEBOOKDIR) && ipython nbconvert --to=html $(notdir $(NSNPSM)) --template html.tpl && cd $(CURDIR) && \
+	git add $(NSNPMS) && \
+	git commit -m "Updated snps matrix report" && \
+	git push
+
 #########################
 ## Targets definitions ##
 #########################
@@ -450,6 +459,6 @@ tree: $(TREE) $(TREERESTRICTED)
 nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS) $(KNONSYNVCFS)
 regulondb: $(TFBSTABLE)
 pangenome: $(RPANGENOME)
-snps: $(RSNPS)
+snps: $(RSNPSM)
 
 .PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn regulondb pangenome snps
