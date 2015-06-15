@@ -154,12 +154,13 @@ if __name__ == "__main__":
             sc_rev, ic = scorePSSM(s.reverse_complement(), m, seq_type)
             if sc.max() >= sc_rev.max():
                 start += sc.argmax()
+                score = sc.sum()
             else:
                 start += len(s) - m.length - sc_rev.argmax()
+                score = sc_rev.sum()
             end = start + m.length
             fields[2] = str(start)
             fields[3] = str(end)
-            score = str(max(sc.max(), sc_rev.max()))
             fields.append(str(score))
             fields.append(str(ic))
         else:
