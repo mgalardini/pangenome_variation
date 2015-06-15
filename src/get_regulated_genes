@@ -58,6 +58,7 @@ if __name__ == "__main__":
     # This is ill-designed but necessary to extract
     # the gene information from RegulonDB
     locus_gene = {}
+    locus_syn_gene = {}
     locus_position = {}
     for s in SeqIO.parse(options.ingbk, 'genbank'):
         for f in s.features:
@@ -75,7 +76,7 @@ if __name__ == "__main__":
             # Also consider gene synonyms
             if 'gene' in f.qualifiers and 'gene_synonym' in f.qualifiers:
                 for syn in f.qualifiers['gene_synonym'][0].split(';'):
-                    locus_gene[syn.strip().lower()] = f.qualifiers['locus_tag'][0]
+                    locus_syn_gene[syn.strip().lower()] = f.qualifiers['locus_tag'][0]
                     locus_position[
                         f.qualifiers['locus_tag'][0]
                         ] = (str(f.location.start), str(f.location.end), strand, s.id)
@@ -120,7 +121,10 @@ if __name__ == "__main__":
         gene_name = gene_name[:4]
         
         if gene_name in locus_gene:
-            lc = locus_gene[gene_name]
+            if gene_name not in locus_gene:
+                lc = locus_syn_gene[gene_name]
+            else:
+                lc = locus_gene[gene_name]
             locus.add(lc)
         
             # Give some more details, if needed
