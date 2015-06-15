@@ -95,13 +95,15 @@ def makePWM(m, seq_type):
                           'M', 'F', 'P', 'S', 'T', 'W',
                           'Y', 'V'),
                       DNA=('A', 'T', 'G', 'C'),
-                      RNA=('A', 'U', 'G', 'C')) 
+                      RNA=('A', 'U', 'G', 'C'))
     background = dict()
     for key in namespaces[seq_type]:
         background[key] = 1/float(len(namespaces[seq_type]))
+    freq_gc = 0.5137286579768681
+    freq_at = 1 - freq_gc
+    background = {'A': freq_at/2.0, 'T': freq_at/2.0, 'G': freq_gc/2.0, 'C': freq_gc/2.0}
     pwm = m.counts.normalize(pseudocounts=background)
-    return pwm
-
+    return pwm 
 
 def score_array(pwm, seq):
     for nt in range(len(seq) - pwm.length + 1):
