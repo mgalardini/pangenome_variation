@@ -65,19 +65,15 @@ def get_motif(sequences):
 def scorePSSM(seqs, m, seq_type):
     # Central residue index
     central_ind = np.ceil(m.length/2.0)
-
     # Get PWM:  cannot have log weights for mss
     pwm = makePWM(m, seq_type=seq_type)
-
     # Best/worst sequence match
-    best_score = score_array(pwm, pwm.consensus)
-    worst_score = score_array(pwm, pwm.anticonsensus)
-
+    best_score = list(score_array(pwm, pwm.consensus))[0]
+    worst_score = list(score_array(pwm, pwm.anticonsensus))[0]
     # MATCH information content
     m_ic = match_ic(pwm)
     # Get vector of frequencies
-    score_arr = score_array(pwm, seqs)
-
+    score_arr = list(score_array(pwm, seqs))
     scores = []
     for sa in score_arr:
         na = np.isnan(sa)
@@ -106,16 +102,12 @@ def makePWM(m, seq_type):
     pwm = m.counts.normalize(pseudocounts=background)
     return pwm
 
+
 def score_array(pwm, seq):
     for nt in range(len(seq) - pwm.length + 1):
-        if nt:
-            sc.append(pwm[seq[nt+pwm.length-1], pwm.length-1])
-            sc = sc[1:]
-            scores = np.vstack((scores, sc))
-        else:
-            sc = [pwm[j][i] for i, j in enumerate(seq[nt:(nt+pwm.length)])]
-            scores = np.array(sc)
-    return scores
+        sc = [pwm[j][i] for i, j in enumerate(seq[nt:(nt+pwm.length)])]
+        scores = np.array(sc)
+        yield scores
 
 def match_ic(pwm, base=np.e):
     if isinstance(pwm, dict):
@@ -154,10 +146,9 @@ if __name__ == "__main__":
             sc_rev, ic = scorePSSM(s.reverse_complement(), m, seq_type)
             if sc.max() >= sc_rev.max():
                 start += sc.argmax()
-                score = sc.sum()
             else:
                 start += len(s) - m.length - sc_rev.argmax()
-                score = sc_rev.sum()
+            score = max(sc.max(), sc_rev.max())
             end = start + m.length
             fields[2] = str(start)
             fields[3] = str(end)
