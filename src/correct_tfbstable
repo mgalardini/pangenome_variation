@@ -158,7 +158,6 @@ if __name__ == "__main__":
             sc_rev_match, ic_match = scorePSSM(s.reverse_complement(), m, seq_type, background)
             sc, ic = scorePSSM(s, m, seq_type, match=False, background=background)
             sc_rev, ic = scorePSSM(s.reverse_complement(), m, seq_type, match=False, background=background)
-            sc_rev = sc_rev[::-1]
 
             if sc_match.max() >= sc_rev_match.max():
                 start += sc_match.argmax()
