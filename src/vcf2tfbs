@@ -51,7 +51,7 @@ if __name__ == "__main__":
     for l in open(options.tfbs):
         if l.startswith('#'):
             continue
-        tf, lc, start, stop, strand, x1, x2, x3, chrom, x4, x5 = l.split('\t')
+        tf, lc, start, stop, strand, x1, x2, x3, chrom, x4, x5, x6, x7 = l.split('\t')
         tfbs[chrom] = tfbs.get(chrom, set())
         tfbs[chrom].add( (tf, lc, int(start), int(stop), strand) )
 
@@ -81,7 +81,7 @@ if __name__ == "__main__":
                         if x[-1] == '+':
                             position = pos - x[2] + 1
                         elif x[-1] == '-':
-                            position = -pos -x[3] + 1
+                            position = -pos +x[3] + 1
                         else:
                             # Contradictory information
                             position='?'

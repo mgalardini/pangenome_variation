@@ -120,12 +120,16 @@ $(KOUTPUT): $(GENOME) $(GBK) $(TARGETSDIR) $(KINPUT) $(KANNOTATED) $(KOUT)
 
 KVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(KOUT)/,$(addsuffix .vcf,$(notdir $(basename $(GENOME))))))
 KNONSYNVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(KOUT)/,$(addsuffix .nonsyn.vcf,$(notdir $(basename $(GENOME))))))
+KTFBSVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(KOUT)/,$(addsuffix .tfbs.vcf,$(notdir $(basename $(GENOME))))))
 
 $(KOUT)/%.vcf: $(TARGETSDIR)/%.fasta $(KOUTPUT)
 	$(SRCDIR)/ksnp2vcf $(KOUT)/VCF.$(notdir $(GENOME)).vcf $(notdir $<) --chrom $(shell grep VERSION $(GBK) | head -n 1 | awk '{print $$2}') > $@
 
 $(KOUT)/%.nonsyn.vcf: $(KOUT)/%.vcf $(GBK)
 	cat $< | python2 $(SRCDIR)/vcf2nonsyn $(GBK) - > $@
+
+$(KOUT)/%.tfbs.vcf: $(KOUT)/%.vcf $(TFBSTABLE)
+	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) - > $@
 
 #################################################
 ## Alignment variant calling (pairwise parsnp) ##
@@ -145,6 +149,7 @@ $(REPEATS): $(GENOME)
 
 PVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .vcf,$(notdir $(basename $(GENOME))))))
 PNONSYNVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .nonsyn.vcf,$(notdir $(basename $(GENOME))))))
+PTFBSVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .tfbs.vcf,$(notdir $(basename $(GENOME))))))
 
 $(POUT)/%.vcf: $(TARGETSDIR)/%.fasta $(REPEATS)	$(GENOME)
 	mkdir -p $(POUT)/$(basename $(notdir $<))
@@ -160,6 +165,9 @@ $(POUT)/%.vcf: $(TARGETSDIR)/%.fasta $(REPEATS)	$(GENOME)
 $(POUT)/%.nonsyn.vcf: $(POUT)/%.vcf $(GBK)
 	cat $< | python2 $(SRCDIR)/vcf2nonsyn $(GBK) - > $@
 
+$(POUT)/%.tfbs.vcf: $(POUT)/%.vcf $(TFBSTABLE)
+	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) - > $@
+
 ##############################
 ## Pairwise reads alignment ##
 ##############################
@@ -169,6 +177,7 @@ READS = $(wildcard $(READSDIR)/*)
 
 MVCFS = $(foreach READ,$(READS),$(addprefix $(MOUT)/,$(addsuffix .vcf,$(notdir $(READ)))))
 MNONSYNVCFS = $(foreach READ,$(READS),$(addprefix $(MOUT)/,$(addsuffix .nonsyn.vcf,$(notdir $(READ)))))
+MTFBSVCFS = $(foreach READ,$(READS),$(addprefix $(MOUT)/,$(addsuffix .tfbs.vcf,$(notdir $(READ)))))
 
 GINDEX = $(GENOME).bwt
 $(GINDEX): $(GENOME)
@@ -221,6 +230,9 @@ $(MOUT)/%.vcf: $(READSDIR)/% $(GINDEX)
 
 $(MOUT)/%.nonsyn.vcf: $(MOUT)/%.vcf $(GBK)
 	cat $< | python2 $(SRCDIR)/vcf2nonsyn $(GBK) - > $@
+
+$(MOUT)/%.tfbs.vcf: $(MOUT)/%.vcf $(TFBSTABLE)
+	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) - > $@
 
 #############################
 ## Consensus variant calls ##
@@ -457,8 +469,9 @@ kmers: $(KTABLE)
 roary: $(ROARYOUT)
 tree: $(TREE) $(TREERESTRICTED)
 nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS) $(KNONSYNVCFS)
+tfbs: $(MTFBSVCFS) $(PTFBSVCFS) $(KTFBSVCFS)
 regulondb: $(TFBSTABLE)
 pangenome: $(RPANGENOME)
 snps: $(RSNPSM)
 
-.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn regulondb pangenome snps
+.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn tfbs regulondb pangenome snps
