@@ -162,9 +162,11 @@ if __name__ == "__main__":
             if sc_match.max() >= sc_rev_match.max():
                 start += sc_match.argmax()
                 score_biomotif = sc[sc_match.argmax()]
+                fields[4] = '+'
             else:
                 start += len(s) - m.length - sc_rev_match.argmax()
                 score_biomotif = sc_rev[sc_rev_match.argmax()]
+                fields[4] = '-'
             score_match = max(sc_match.max(), sc_rev_match.max())
             end = start + m.length
             fields[2] = str(start)

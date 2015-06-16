@@ -38,6 +38,7 @@ if __name__ == "__main__":
     vcf_header = ['##fileformat=VCFv4.0',
        '##INFO=<ID=POS,Number=1,Type=String,Description="Position in the TFBS (1-based)">',
        '##INFO=<ID=STRAND,Number=1,Type=String,Description="TFBS strand">',
+       '##INFO=<ID=TARGET,Number=1,Type=String,Description="Transcription factor target locus">',
        '##INFO=<ID=TF,Number=1,Type=String,Description="Transcription factor name">',
        '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO']
 
@@ -92,5 +93,5 @@ if __name__ == "__main__":
                             n,
                             '.',
                             'PASS',
-                            'POS=%s;TF=%s;STRAND=%s'%(position, x[0], x[-1]),]]))
+                            'POS=%s;TF=%s;STRAND=%s;TARGET=%s'%(position, x[0], x[-1], x[1]),]]))
                             
