@@ -62,48 +62,53 @@ def get_motif(sequences):
     seq_type = 'DNA'
     return m, seq_type
 
-def scorePSSM(seqs, m, seq_type):
+def scorePSSM(seqs, m, seq_type, match=True, background=0):
     # Central residue index
     central_ind = np.ceil(m.length/2.0)
     # Get PWM:  cannot have log weights for mss
-    pwm = makePWM(m, seq_type=seq_type)
-    # Best/worst sequence match
-    best_score = list(score_array(pwm, pwm.consensus))[0]
-    worst_score = list(score_array(pwm, pwm.anticonsensus))[0]
-    # MATCH information content
-    m_ic = match_ic(pwm)
-    # Get vector of frequencies
-    score_arr = list(score_array(pwm, seqs))
-    scores = []
-    for sa in score_arr:
-        na = np.isnan(sa)
-        # Get information content of non-NA values
-        na = ~na
-        ic = m_ic[na]
-        # MSS score core
-        curr_score = np.nansum(ic * (sa[na]))
-        opt_score = np.nansum(ic * (best_score[na]))
-        w_score = np.nansum(ic * (worst_score[na]))
-        score_final = (curr_score - w_score) / (opt_score - w_score)
-        scores.append(score_final)
-    scores = np.array(scores)
-    return scores, sum(m_ic)
+    pwm = makePWM(m, seq_type=seq_type, background=background)
+    seqs.alphabet = pwm.alphabet
+    if match:
+        # Best/worst sequence match
+        best_score = list(score_array(pwm, pwm.consensus))[0]
+        worst_score = list(score_array(pwm, pwm.anticonsensus))[0]
+        # MATCH information content
+        m_ic = match_ic(pwm)
+        # Get vector of frequencies
+        score_arr = list(score_array(pwm, seqs))
+        scores = []
+        for sa in score_arr:
+            na = np.isnan(sa)
+            # Get information content of non-NA values
+            na = ~na
+            ic = m_ic[na]
+            # MSS score core
+            curr_score = np.nansum(ic * (sa[na]))
+            opt_score = np.nansum(ic * (best_score[na]))
+            w_score = np.nansum(ic * (worst_score[na]))
+            score_final = (curr_score - w_score) / (opt_score - w_score)
+            scores.append(score_final)
+        scores = np.array(scores)
+        ic = sum(m_ic)
+    else:
+        scores = pwm.log_odds(background).calculate(seqs)
+        ic = pwm.log_odds(background).mean()
+    return scores, ic
 
-def makePWM(m, seq_type):
+
+def makePWM(m, seq_type, background=0):
     namespaces = dict(AA=('A', 'R', 'N', 'D', 'C', 'Q',
                           'E', 'G', 'H', 'I', 'L', 'K',
                           'M', 'F', 'P', 'S', 'T', 'W',
                           'Y', 'V'),
                       DNA=('A', 'T', 'G', 'C'),
                       RNA=('A', 'U', 'G', 'C'))
-    background = dict()
-    for key in namespaces[seq_type]:
-        background[key] = 1/float(len(namespaces[seq_type]))
-    freq_gc = 0.5137286579768681
-    freq_at = 1 - freq_gc
-    background = {'A': freq_at/2.0, 'T': freq_at/2.0, 'G': freq_gc/2.0, 'C': freq_gc/2.0}
+    if background == 0:
+        background = dict()
+        for key in namespaces[seq_type]:
+            background[key] = 1/float(len(namespaces[seq_type]))
     pwm = m.counts.normalize(pseudocounts=background)
-    return pwm 
+    return pwm
 
 def score_array(pwm, seq):
     for nt in range(len(seq) - pwm.length + 1):
@@ -130,7 +135,11 @@ if __name__ == "__main__":
     d = {}
     for s in SeqIO.parse(options.genome, 'genbank'):
         d[s.id] = s
-
+    
+    freq_gc = 0.5137286579768681
+    freq_at = 1 - freq_gc
+    background = {'A': freq_at/2.0, 'T': freq_at/2.0, 'G': freq_gc/2.0, 'C': freq_gc/2.0}
+    
     tf = ''
     for row in open(options.tfbs, 'r'):
         if row[0] == '#':
@@ -144,20 +153,31 @@ if __name__ == "__main__":
             start = int(fields[2]) - 10
             end = int(fields[3]) + 10
             s = d[fields[8]][start:end].seq
-            sc, ic = scorePSSM(s, m, seq_type)
-            sc_rev, ic = scorePSSM(s.reverse_complement(), m, seq_type)
-            if sc.max() >= sc_rev.max():
-                start += sc.argmax()
+
+            sc_match, ic_match = scorePSSM(s, m, seq_type, background)
+            sc_rev_match, ic_match = scorePSSM(s.reverse_complement(), m, seq_type, background)
+            sc, ic = scorePSSM(s, m, seq_type, match=False, background=background)
+            sc_rev, ic = scorePSSM(s.reverse_complement(), m, seq_type, match=False, background=background)
+            sc_rev = sc_rev[::-1]
+
+            if sc_match.max() >= sc_rev_match.max():
+                start += sc_match.argmax()
+                score_biomotif = sc[sc_match.argmax()]
             else:
-                start += len(s) - m.length - sc_rev.argmax()
-            score = max(sc.max(), sc_rev.max())
+                start += len(s) - m.length - sc_rev_match.argmax()
+                score_biomotif = sc_rev[sc_rev_match.argmax()]
+            score_match = max(sc_match.max(), sc_rev_match.max())
             end = start + m.length
             fields[2] = str(start)
             fields[3] = str(end)
-            fields.append(str(score))
+            fields.append(str(score_match))
+            fields.append(str(ic_match))
+            fields.append(str(score_biomotif))
             fields.append(str(ic))
         else:
             # TF not in the PSSMSet
-            fields += 'NA'
-            fields += 'NA'
+            fields.append('NA')
+            fields.append('NA')
+            fields.append('NA')
+            fields.append('NA')
         print('\t'.join(fields))
