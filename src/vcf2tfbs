@@ -18,25 +18,79 @@ def get_options():
 
     parser.add_argument('tfbs', action='store',
                         help='TFBSs table')
+    parser.add_argument('pssm', action='store', help='Directory with PSSM sequences')
     parser.add_argument('vcf', action='store',
                         type=argparse.FileType('rb'),
                         help='VCF stream or file ("-" for STDIN) (chromosome IDs should match)')
+    parser.add_argument('--genome', action='store',
+                        default=None,
+                        help='Genome fasta file [Default: E. coli promoter regions GC content]')
 
     parser.add_argument('--version', action='version',
                          version='%(prog)s '+__version__)
 
     return parser.parse_args()
 
+def retrieve_instances(fname):
+    instances = []
+    if not os.path.isfile(fname):
+        return instances
+    for s in SeqIO.parse(fname, 'fasta'):
+        instances.append(s.seq)
+    return instances
+
+def get_motif(sequences):
+    from Bio import motifs
+    # Construct motif
+    m = motifs.create(sequences)
+    # Get alphabet
+    alphabet = m.alphabet.letters
+    # Get sequence type
+    seq_type = 'DNA'
+    return m, seq_type
+
+def get_ic_position(pssm, pos, seqs=set()):
+    from Bio.SeqUtils import GC
+    import numpy as np
+    instances = retrieve_instances(pssm)
+    if isinstance(instances, list) and len(instances) > 0 and isinstance(pos, int):
+        if len(seqs) == 0:
+            gc = 0.5137286579768681
+        else:
+            s = seqs.pop()
+            while len(seqs) > 0:
+                s += seqs.pop()
+            gc = GC(s.seq)
+        dfreq = {'A':(1-gc)/2,
+                 'T':(1-gc)/2,
+                 'G':gc/2,
+                 'C':gc/2}
+        m, seq_type = get_motif(instances)
+        mfreq = {'A':m.pwm['A'][pos],
+                 'C':m.pwm['C'][pos],
+                 'G':m.pwm['G'][pos],
+                 'T':m.pwm['T'][pos]}
+        # Calculate IC
+        ic = 0.0
+        for base in dfreq:
+            if mfreq[base] == 0: continue
+            ic += mfreq[base] * np.log2(mfreq[base] / dfreq[base])
+    else:
+        ic = np.nan
+    return (ic)
+
 if __name__ == "__main__":
     import sys
     import os
     import vcf
+    import numpy as np
     from Bio import SeqIO
 
     options = get_options()
 
     vcf_header = ['##fileformat=VCFv4.0',
        '##INFO=<ID=POS,Number=1,Type=String,Description="Position in the TFBS (1-based)">',
+       '##INFO=<ID=IC,Number=1,Type=Float,Description="Position information content">',
        '##INFO=<ID=STRAND,Number=1,Type=String,Description="TFBS strand">',
        '##INFO=<ID=TARGET,Number=1,Type=String,Description="Transcription factor target locus">',
        '##INFO=<ID=TF,Number=1,Type=String,Description="Transcription factor name">',
@@ -45,6 +99,11 @@ if __name__ == "__main__":
     # Spit out the vcf header
     for l in vcf_header:
         print(l)
+
+    if options.genome is not None:
+        seqs = {s for s in SeqIO.parse(options.genome, 'fasta')}
+    else:
+        seqs = set()
 
     # Keep in mind all the TFBS and their position
     # May be memory consuming
@@ -61,6 +120,7 @@ if __name__ == "__main__":
         # output some details
         for x in tfbs[r.CHROM]:
             if (r.POS >= x[2] and r.POS <= x[3]) or len(set(range(r.POS, r.POS+len(str(r.REF)))).intersection(range(x[2], x[3]+1))) != 0:
+                pssm = os.path.join(options.pssm, '%s.pssm.fasta'%x[0].lower().replace('-', ''))
                 # Only SNPs allowed here
                 # Consider multiple SNPs in the same long variant!
                 for var in r.ALT:
@@ -80,12 +140,17 @@ if __name__ == "__main__":
                             continue
                         # Derive the position in the TFBS using the strand information
                         if x[-1] == '+':
-                            position = pos - x[2] + 1
+                            position = pos - x[2] 
                         elif x[-1] == '-':
-                            position = -pos +x[3] + 1
+                            position = -pos +x[3] 
                         else:
                             # Contradictory information
                             position='?'
+                        ic = get_ic_position(pssm, position-1, seqs)
+                        if np.isnan(ic):
+                            ic = 'NA'
+                        else:
+                            ic = '%.3f'%ic
                         print('\t'.join([str(x) for x in [r.CHROM,
                             pos,
                             '.',
@@ -93,5 +158,6 @@ if __name__ == "__main__":
                             n,
                             '.',
                             'PASS',
-                            'POS=%s;TF=%s;STRAND=%s;TARGET=%s'%(position, x[0], x[-1], x[1]),]]))
+                            'POS=%s;IC=%s;TF=%s;STRAND=%s;TARGET=%s'%(position, ic, x[0], x[-1], x[1]),]]))
                             
+
