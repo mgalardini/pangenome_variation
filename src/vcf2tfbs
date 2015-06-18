@@ -145,12 +145,15 @@ if __name__ == "__main__":
                             position = -pos +x[3] 
                         else:
                             # Contradictory information
-                            position='?'
-                        ic = get_ic_position(pssm, position-1, seqs)
-                        if np.isnan(ic):
-                            ic = 'NA'
+                            position='NA'
+                        if position != 'NA':
+                            ic = get_ic_position(pssm, position-1, seqs)
+                            if np.isnan(ic):
+                                ic = 'NA'
+                            else:
+                                ic = '%.3f'%ic
                         else:
-                            ic = '%.3f'%ic
+                            ic = 'NA'
                         print('\t'.join([str(x) for x in [r.CHROM,
                             pos,
                             '.',

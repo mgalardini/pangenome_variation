@@ -129,7 +129,7 @@ $(KOUT)/%.nonsyn.vcf: $(KOUT)/%.vcf $(GBK)
 	cat $< | python2 $(SRCDIR)/vcf2nonsyn $(GBK) - > $@
 
 $(KOUT)/%.tfbs.vcf: $(KOUT)/%.vcf $(TFBSTABLE)
-	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) - > $@
+	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) $(FILESDIR)/pssm - > $@
 
 #################################################
 ## Alignment variant calling (pairwise parsnp) ##
@@ -166,7 +166,7 @@ $(POUT)/%.nonsyn.vcf: $(POUT)/%.vcf $(GBK)
 	cat $< | python2 $(SRCDIR)/vcf2nonsyn $(GBK) - > $@
 
 $(POUT)/%.tfbs.vcf: $(POUT)/%.vcf $(TFBSTABLE)
-	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) - > $@
+	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) $(FILESDIR)/pssm - > $@
 
 ##############################
 ## Pairwise reads alignment ##
@@ -232,7 +232,7 @@ $(MOUT)/%.nonsyn.vcf: $(MOUT)/%.vcf $(GBK)
 	cat $< | python2 $(SRCDIR)/vcf2nonsyn $(GBK) - > $@
 
 $(MOUT)/%.tfbs.vcf: $(MOUT)/%.vcf $(TFBSTABLE)
-	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) - > $@
+	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) $(FILESDIR)/pssm - > $@
 
 #############################
 ## Consensus variant calls ##
