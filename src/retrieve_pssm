@@ -57,7 +57,7 @@ def retrieve_pssm(pssm_fn, odir='.'):
         if row != '\n':
             if 'Transcription Factor Name:' in row:
                 if name in motif.keys():
-                    filename = os.path.join(odir, '%s.pssm.fasta'%name)
+                    filename = os.path.join(odir, '%s.pssm.fasta'%name.lower())
                     SeqIO.write(motif[name], filename, 'fasta')
                 name = row.split()[-1]
                 if name == 'DgsA':

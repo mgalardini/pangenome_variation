@@ -147,7 +147,7 @@ if __name__ == "__main__":
         fields = row.rstrip().split('\t') 
         if tf != fields[0]:
             tf = fields[0]
-            instances = retrieve_instances(os.path.join(options.pssm, '%s.pssm.fasta'%tf))
+            instances = retrieve_instances(os.path.join(options.pssm, '%s.pssm.fasta'%tf.lower().replace('-', '')))
         if isinstance(instances, list) and len(instances) > 0:
             m, seq_type = get_motif(instances)
             start = int(fields[2]) - 10
