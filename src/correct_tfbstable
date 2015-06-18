@@ -66,9 +66,9 @@ def scorePSSM(seqs, m, seq_type, match=True, background=0):
     # Central residue index
     central_ind = np.ceil(m.length/2.0)
     # Get PWM:  cannot have log weights for mss
-    pwm = makePWM(m, seq_type=seq_type, background=background)
-    seqs.alphabet = pwm.alphabet
     if match:
+        pwm = makePWM(m, seq_type=seq_type, background=background)
+        seqs.alphabet = pwm.alphabet
         # Best/worst sequence match
         best_score = list(score_array(pwm, pwm.consensus))[0]
         worst_score = list(score_array(pwm, pwm.anticonsensus))[0]
@@ -91,10 +91,12 @@ def scorePSSM(seqs, m, seq_type, match=True, background=0):
         scores = np.array(scores)
         ic = sum(m_ic)
     else:
+        pwm = m.counts.normalize()
+        seqs.alphabet = pwm.alphabet
+
         scores = pwm.log_odds(background).calculate(seqs)
         ic = pwm.log_odds(background).mean()
     return scores, ic
-
 
 def makePWM(m, seq_type, background=0):
     namespaces = dict(AA=('A', 'R', 'N', 'D', 'C', 'Q',
@@ -107,7 +109,7 @@ def makePWM(m, seq_type, background=0):
         background = dict()
         for key in namespaces[seq_type]:
             background[key] = 1/float(len(namespaces[seq_type]))
-    pwm = m.counts.normalize(pseudocounts=background)
+    pwm = m.counts.normalize()
     return pwm
 
 def score_array(pwm, seq):
@@ -121,9 +123,9 @@ def match_ic(pwm, base=np.e):
         pwm = np.array([pwm[k] for k in pwm.keys()])
     N = pwm.shape[0]
     if base == np.e:
-        ic = np.array([np.nansum(pwm[:, j] * np.log(N * pwm[:, j])) for j in range(pwm.shape[1])])
+        ic = np.array([np.nansum(pwm[:, j] * np.log(N * pwm[:, j] + 0.01)) for j in range(pwm.shape[1])])
     elif base == 2:
-        ic = np.array([np.nansum(pwm[:, j] * np.log2(N * pwm[:, j])) for j in range(pwm.shape[1])])
+        ic = np.array([np.nansum(pwm[:, j] * np.log2(N * pwm[:, j] + 0.01)) for j in range(pwm.shape[1])])
     return (ic)
 
 if __name__ == "__main__":
