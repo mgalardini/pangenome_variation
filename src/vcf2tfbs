@@ -49,11 +49,11 @@ def get_motif(sequences):
     seq_type = 'DNA'
     return m, seq_type
 
-def get_ic_position(pssm, pos, seqs=set()):
+def get_ic_position(pssm, pos, base_old, base_new, seqs=set()):
     from Bio.SeqUtils import GC
     import numpy as np
     instances = retrieve_instances(pssm)
-    if isinstance(instances, list) and len(instances) > 0 and isinstance(pos, int):
+    if len(instances) > 0:
         if len(seqs) == 0:
             gc = 0.5137286579768681
         else:
@@ -74,10 +74,14 @@ def get_ic_position(pssm, pos, seqs=set()):
         ic = 0.0
         for base in dfreq:
             if mfreq[base] == 0: continue
-            ic += mfreq[base] * np.log2(mfreq[base] / dfreq[base])
+            ic += mfreq[base] * np.log2( (mfreq[base] / dfreq[base]) + 0.01)
+        ic_ij_old = mfreq[base_old] * np.log2( (mfreq[base_old] / dfreq[base_old]) + 0.01)
+        ic_ij_new = mfreq[base_new] * np.log2( (mfreq[base_new] / dfreq[base_new]) + 0.01)
+        d_IC = ic * (2 ** -(ic_ij_old - ic_ij_new))
     else:
         ic = np.nan
-    return (ic)
+        d_IC = np.nan
+    return (ic, d_IC)
 
 if __name__ == "__main__":
     import sys
@@ -90,7 +94,8 @@ if __name__ == "__main__":
 
     vcf_header = ['##fileformat=VCFv4.0',
        '##INFO=<ID=POS,Number=1,Type=String,Description="Position in the TFBS (1-based)">',
-       '##INFO=<ID=IC,Number=1,Type=Float,Description="Position information content">',
+       '##INFO=<ID=IC,Number=1,Type=Float,Description="Position information content">', 
+       '##INFO=<ID=dIC,Number=1,Type=Float,Description="Change in Position information content">',
        '##INFO=<ID=STRAND,Number=1,Type=String,Description="TFBS strand">',
        '##INFO=<ID=TARGET,Number=1,Type=String,Description="Transcription factor target locus">',
        '##INFO=<ID=TF,Number=1,Type=String,Description="Transcription factor name">',
@@ -147,13 +152,16 @@ if __name__ == "__main__":
                             # Contradictory information
                             position='.'
                         if position != '.':
-                            ic = get_ic_position(pssm, position-1, seqs)
+                            ic, d_IC = get_ic_position(pssm, position-1, ref, n, seqs)
                             if np.isnan(ic):
                                 ic = '.'
+                                d_IC = '.'
                             else:
                                 ic = '%.3f'%ic
+                                d_IC = '%.3f'%d_IC
                         else:
                             ic = '.'
+                            d_IC = '.'
                         print('\t'.join([str(x) for x in [r.CHROM,
                             pos,
                             '.',
@@ -161,6 +169,7 @@ if __name__ == "__main__":
                             n,
                             '.',
                             'PASS',
-                            'POS=%s;IC=%s;TF=%s;STRAND=%s;TARGET=%s'%(position, ic, x[0], x[-1], x[1]),]]))
+                            'POS=%s;IC=%s;dIC=%s;TF=%s;STRAND=%s;TARGET=%s'%(position, ic, d_IC, x[0], x[-1], x[1]),]]))
                             
+
 
