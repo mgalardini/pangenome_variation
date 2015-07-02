@@ -49,11 +49,10 @@ def get_motif(sequences):
     seq_type = 'DNA'
     return m, seq_type
 
-def get_ic_position(pssm, pos, base_old, base_new, seqs=set()):
+def get_ic_position(m, pos, base_old, base_new, seqs=set()):
     from Bio.SeqUtils import GC
     import numpy as np
-    instances = retrieve_instances(pssm)
-    if len(instances) > 0:
+    if m is not None:
         if len(seqs) == 0:
             gc = 0.5137286579768681
         else:
@@ -65,7 +64,6 @@ def get_ic_position(pssm, pos, base_old, base_new, seqs=set()):
                  'T':(1-gc)/2,
                  'G':gc/2,
                  'C':gc/2}
-        m, seq_type = get_motif(instances)
         mfreq = {'A':m.pwm['A'][pos],
                  'C':m.pwm['C'][pos],
                  'G':m.pwm['G'][pos],
@@ -76,7 +74,7 @@ def get_ic_position(pssm, pos, base_old, base_new, seqs=set()):
             ic += mfreq[base] * np.log2( (mfreq[base] / dfreq[base]) + 0.01)
         ic_ij_old = mfreq[base_old] * np.log2( (mfreq[base_old] / dfreq[base_old]) + 0.01)
         ic_ij_new = mfreq[base_new] * np.log2( (mfreq[base_new] / dfreq[base_new]) + 0.01)
-        d_IC = ic * (2 ** -(ic_ij_old - ic_ij_new))
+        d_IC = (2 ** -(ic_ij_old - ic_ij_new))
     else:
         ic = np.nan
         d_IC = np.nan
@@ -91,6 +89,12 @@ if __name__ == "__main__":
 
     options = get_options()
 
+    d = {}
+    for f in os.listdir(options.pssm):
+        instances = retrieve_instances(os.path.join(options.pssm, f))
+        m, seq_type = get_motif(instances)
+        d[os.path.join(options.pssm, f)] = m
+    
     vcf_header = ['##fileformat=VCFv4.0',
        '##INFO=<ID=POS,Number=1,Type=String,Description="Position in the TFBS (0-based)">',
        '##INFO=<ID=IC,Number=1,Type=Float,Description="Position information content">', 
@@ -144,14 +148,14 @@ if __name__ == "__main__":
                             continue
                         # Derive the position in the TFBS using the strand information
                         if x[-1] == '+':
-                            position = pos - x[2] 
+                            position = pos - x[2] +1 
                         elif x[-1] == '-':
-                            position = -pos +x[3] 
+                            position = -pos + x[3] 
                         else:
                             # Contradictory information
                             position='.'
                         if position != '.':
-                            ic, d_IC = get_ic_position(pssm, position, ref, n, seqs)
+                            ic, d_IC = get_ic_position(d.get(pssm, None), position - 1, ref, n, seqs)
                             if np.isnan(ic):
                                 ic = '.'
                                 d_IC = '.'
@@ -168,7 +172,7 @@ if __name__ == "__main__":
                             n,
                             '.',
                             'PASS',
-                            'POS=%s;IC=%s;dIC=%s;TF=%s;STRAND=%s;TARGET=%s'%(position, ic, d_IC, x[0], x[-1], x[1]),]]))
+                            'POS=%s;IC=%s;dIC=%s;TF=%s;STRAND=%s;TARGET=%s'%(position - 1, ic, d_IC, x[0], x[-1], x[1]),]]))
                             
 
 
