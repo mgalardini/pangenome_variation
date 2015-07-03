@@ -1,0 +1,134 @@
+#!/usr/bin/env python
+'''
+From a GenBank file and a VCF file
+output all non-synonymous mutations
+'''
+
+__author__ = "Marco Galardini"
+__version__ = '0.1.0'
+
+def get_options():
+    import argparse
+    import sys
+
+    # create the top-level parser
+    description = "Output all nonsynonymous mutations (from gbk and vcf)"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'vcf2nonsyn')
+
+    parser.add_argument('genbank', action='store',
+                        help='GenBank file (should contain CDSs)')
+    parser.add_argument('vcf', action='store',
+                        type=argparse.FileType('rb'),
+                        help='VCF stream or file ("-" for STDIN) (CHROM should correspond to gbk IDs)')
+    parser.add_argument('--uniprot', action='store_true',
+                        default=False,
+                        dest='uniprot',
+                        help='Output Uniprot IDs instead of locus_tags')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    import sys
+    import os
+    import vcf
+    from Bio import SeqIO
+
+    options = get_options()
+
+    vcf_header = ['##fileformat=VCFv4.0',
+       '##INFO=<ID=MUT,Number=1,Type=String,Description="Protein variant">',
+       '##INFO=<ID=CDS,Number=1,Type=String,Description="CDS id">',
+       '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO']
+
+    # Spit out the vcf header
+    for l in vcf_header:
+        print(l)
+
+    # Keep in mind all the CDS and their position
+    # May be memory consuming
+    d = {}
+    ds = {}
+    for s in SeqIO.parse(options.genbank, 'genbank'):
+        d[s.id] = filter(lambda x: x.type == 'CDS' and
+                'pseudo' not in x.qualifiers, s.features)
+        ds[s.id] = s.seq
+
+    for r in vcf.Reader(options.vcf):
+        # TODO: check that the dna molecule is there
+
+        # For each CDS hitting this SNP,
+        # check the mutation
+        for f in filter(lambda x: r.POS >= int(x.location.start)+1 and
+                                  r.POS <= int(x.location.end),
+                                  d[r.CHROM]):
+            if options.uniprot:
+                try:
+                    cds_id = filter(lambda x: x.startswith('UniProtKB/Swiss-Prot:'),
+                        f.qualifiers['db_xref'])[0].replace('UniProtKB/Swiss-Prot:', '')
+                except:
+                    # Fallback: locus_tag
+                    cds_id = f.qualifiers['locus_tag'][0]
+            else:
+                cds_id = f.qualifiers['locus_tag'][0]
+            wts = ds[r.CHROM][f.location.start:f.location.end]
+
+            # For each mutation
+            # compare the wt and mut translations
+            # Only SNPs allowed here
+            # Consider multiple SNPs in the same long variant!
+            for var in r.ALT:
+                muts = []
+                if r.is_indel:
+                    if len(str(r.REF)) != len(str(var)):
+                        continue
+                    for ref, alt, pos in zip(str(r.REF), str(var), range(r.POS, r.POS+len(str(r.REF)))):
+                        if ref != alt:
+                            muts.append( (pos, ref, alt) )
+                else:
+                    muts.append( (r.POS, r.REF, str(var)) )
+                
+                for pos, ref, n in muts:
+                    # When multiple positions SNPs are present, discard positions
+                    # outside of the CDS
+                    if pos > int(f.location.end) or pos < int(f.location.start):
+                        continue
+                    mut = (wts[:abs(int(f.location.start + 1) - pos)] +
+                              str(n) +
+                              wts[abs(int(f.location.start + 1) - pos) + 1:])
+                    if f.strand > 0:
+                        wt = str(wts.translate())
+                        mut = str(mut.translate())
+                    else:
+                        wt = str(wts.reverse_complement().translate())
+                        mut = str(mut.reverse_complement().translate())
+
+                    # Weird behaviors check
+                    # a couple examples where a base miscalling has given raise
+                    # to a stop codon inside a CDS have been found
+                    # so we should account for them
+                    while wt.find('*', 0, len(wt)-1) > 0:
+                        i = wt.find('*', 0, len(wt)-1)
+                        wt = wt[:i] + 'X' + wt[i + 1:]
+                        mut = mut[:i] + 'X' + mut[i + 1:] 
+
+                    # If they are different, tell me which residue and how
+                    # Be aware of nonsense mutations here
+                    # TODO: handle longer proteins (!!!)
+                    # TODO: how longer they are
+                    # Output the residue change
+                    for a, b, i in zip(wt, mut, range(1, len(wt)+1)):
+                        if a != b and a != 'X':
+                            print('\t'.join([str(x) for x in [r.CHROM,
+                                pos,
+                                '.',
+                                ref,
+                                n,
+                                '.',
+                                'PASS',
+                                'MUT=%s%d%s;CDS=%s'%(a, i, b, 
+                                    cds_id),]]))
+                            

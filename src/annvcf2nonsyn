@@ -1,0 +1,110 @@
+#!/usr/bin/env python
+'''
+Extract all non-synonymous mutations from an annotated VCF file
+
+Works with VCF files annotated with snpEFF
+'''
+
+__author__ = "Marco Galardini"
+__version__ = '0.1.0'
+
+def get_options():
+    import argparse
+    import sys
+
+    # create the top-level parser
+    description = "Output all nonsynonymous mutations (from annotated vcf)"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'annvcf2nonsyn')
+
+    parser.add_argument('vcf', action='store',
+                        type=argparse.FileType('rb'),
+                        help='VCF stream or file ("-" for STDIN)')
+    
+    parser.add_argument('--ids', action='store',
+                        default=None,
+                        help='CDS IDs conversion file (Uniprot -> locus_tag) [Default: None]')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    import sys
+    import os
+    import vcf
+    from Bio.SeqUtils import seq1
+
+    options = get_options()
+
+    # Read the ID conversions, if any
+    id_conv = {}
+    if options.ids is not None:
+        for l in open(options.ids):
+            uniprot, locus = l.rstrip().split()
+            id_conv[locus] = uniprot
+
+    vcf_header = ['##fileformat=VCFv4.0',
+       '##INFO=<ID=MUT,Number=1,Type=String,Description="Protein variant">',
+       '##INFO=<ID=CDS,Number=1,Type=String,Description="CDS id">',
+       '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO']
+
+    # Spit out the vcf header
+    for l in vcf_header:
+        print(l)
+
+    for r in vcf.Reader(options.vcf):
+        var = r.ALT[0]
+        # Look if there is any missense variant in there
+        # Must belong to the variant that we are supplying of course!
+        nonsyn = [x for x in r.INFO['ANN']
+                  if x.split('|')[0] == var and
+                  'missense_variant' in x.split('|')[1]]
+        for nvar in nonsyn:
+            cds = nvar.split('|')[6]
+            if options.ids is not None:
+                cds = id_conv.get(cds, cds)
+            mut = nvar.split('|')[10]
+            
+            m = mut[2:]
+            # Get start position
+            i = 0
+            while True:
+                i += 1
+                m = m[1:-1]
+                try:
+                    int(m)
+                    break
+                except:
+                    continue
+            
+            # Multiple Aa substitutions in one go?
+            muts = []
+            j = 0
+            k = 0
+            mut = mut[2:]
+            while j < i:
+                wt_aa = mut[j:j+3]
+                mut_aa = mut[i+len(m)+j:i+len(m)+3+j]
+                pos_aa = int(m)+k
+                muts.append( (seq1(wt_aa), pos_aa, seq1(mut_aa)) )
+                j += 3
+                k += 1
+
+            for wt_aa, pos_aa, mut_aa in muts:
+                # Avoid synonymous mutations
+                if wt_aa == mut_aa:
+                    continue
+                # Print the VCF line
+                # One line per nonsyn mutation
+                print('\t'.join([str(x) for x in [r.CHROM,
+                    r.POS,
+                    '.',
+                    r.REF,
+                    var,
+                    '.',
+                    'PASS',
+                    'MUT=%s%s%s;CDS=%s'%(wt_aa, pos_aa, mut_aa, 
+                        cds),]]))
+                            

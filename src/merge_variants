@@ -1,0 +1,106 @@
+#!/usr/bin/env python
+'''
+Merge neighbor variants in a VCF file
+
+Improves the detection of non-synonymous mutations
+To be used only for single-sample VCF files,
+with single nucleotides variants,
+and only aploid!
+'''
+
+__author__ = "Marco Galardini"
+__version__ = '0.1.0'
+
+def get_options():
+    import argparse
+    import sys
+
+    # create the top-level parser
+    description = "Merge neighbor variants in a VCF file"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'merge_variants')
+
+    parser.add_argument('vcf', action='store',
+                        type=argparse.FileType('rb'),
+                        help='VCF stream or file ("-" for STDIN)')
+    parser.add_argument('genome', action='store',
+                        help='Genome fasta file (used to fill the gaps)')
+
+    parser.add_argument('--window', action='store',
+                        default=2,
+                        type=int,
+                        help='Merge variants with this maximum distance [Default: 2]')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+def print_vars(vars, seq):
+    start = vars[0].POS
+    stop = vars[-1].POS
+
+    wt = str(seq[start - 1: stop])
+    # Mutate the sequence accordingly (in the right positions!)
+    muts = [(r.POS - start, r.REF, r.ALT[0]) for r in vars]
+    mut = list(wt)
+    for pos, ref, alt in muts:
+        if wt[pos] != ref:
+            raise ValueError('Reference %s, found %s'%(ref, wt[pos]))
+        mut[pos] = str(alt)
+    m = ''
+    for c in mut:
+        m += c
+    
+    print('\t'.join([str(x) for x in [vars[0].CHROM,
+            vars[0].POS,
+            '.',
+            wt,
+            m,
+            '.',
+            'PASS',
+            '.',]]))
+
+if __name__ == "__main__":
+    import sys
+    import os
+    import vcf
+    from Bio import SeqIO
+
+    options = get_options()
+
+    # Save the fasta sequences
+    # Potentially memory consuming!
+    d = {}
+    for s in SeqIO.parse(options.genome, 'fasta'):
+        d[s.id] = s.seq
+
+    vcf_header = ['##fileformat=VCFv4.0',
+       '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO']
+
+    # Spit out the vcf header
+    for l in vcf_header:
+        print(l)
+
+    vars = []
+    for r in vcf.Reader(options.vcf):
+        if len(vars) == 0:
+            vars.append(r)
+            continue
+       
+        # Different chromosome = skip
+        if r.CHROM != vars[-1].CHROM:
+            print_vars(vars, d[vars[-1].CHROM])
+            vars = []
+        # Too distant
+        elif r.POS - vars[-1].POS > options.window:
+            print_vars(vars, d[vars[-1].CHROM])
+            vars = []
+        # Good to go
+        else:
+            vars.append(r)
+            continue
+
+        # Print the variant
+        print_vars([r], d[r.CHROM])
+        vars = []

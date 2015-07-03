@@ -53,10 +53,14 @@ OMAOUT = $(CURDIR)/oout
 KMOUT = $(CURDIR)/kmout
 # Output dir for roary
 RDIR = $(CURDIR)/roary
+# Output dir for roary
+SNPEFFDIR = $(CURDIR)/snpEff
 # Outgroups (genomes that belong to another species or are very diverse)
 OUTGROUPS = outgroups.txt
 
 # Parameters
+# snpEff annotation name
+SNPEFFCHROM = NC_000913.3
 # Species (from prokka reannotation)
 GENUS = Escherichia
 SPECIES = coli
@@ -148,6 +152,8 @@ $(REPEATS): $(GENOME)
 	awk '{print $$8"\t"$$1"\t"$$2}' repeats.txt > $(REPEATS)
 
 PVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .vcf,$(notdir $(basename $(GENOME))))))
+PMERGEDVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .merged.vcf,$(notdir $(basename $(GENOME))))))
+PANNOTATEDVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .annotated.vcf,$(notdir $(basename $(GENOME))))))
 PNONSYNVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .nonsyn.vcf,$(notdir $(basename $(GENOME))))))
 PTFBSVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .tfbs.vcf,$(notdir $(basename $(GENOME))))))
 
@@ -162,8 +168,14 @@ $(POUT)/%.vcf: $(TARGETSDIR)/%.fasta $(REPEATS)	$(GENOME)
 		$(SRCDIR)/parsnp2vcf $@.vcf.vcf $@ && \
 		rm $@.vcf && rm $@.vcf.vcf
 
-$(POUT)/%.nonsyn.vcf: $(POUT)/%.vcf $(GBK)
-	cat $< | python2 $(SRCDIR)/vcf2nonsyn $(GBK) - > $@
+$(POUT)/%.merged.vcf: $(POUT)/%.vcf $(GENOME)
+	cat $< | python2 $(SRCDIR)/merge_variants - $(GENOME) --window 2 > $@	
+
+$(POUT)/%.annotated.vcf: $(POUT)/%.merged.vcf
+	$(JAVA7) -jar $(SNPEFFDIR)/snpEff.jar ann $(SNPEFFCHROM) $< > $@
+
+$(POUT)/%.nonsyn.vcf: $(POUT)/%.annotated.vcf
+	cat $< | python2 $(SRCDIR)/annvcf2nonsyn - > $@
 
 $(POUT)/%.tfbs.vcf: $(POUT)/%.vcf $(TFBSTABLE)
 	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) $(FILESDIR)/pssm - > $@
@@ -450,7 +462,7 @@ RSNPSM = $(NOTEBOOKDIR)/SNPs_matrix.html
 $(RSNPSM): $(PVCFS) $(GBK) $(CONSERVATION) $(TREERESTRICTED)
 	runipy -o $(NSNPSM) && \
 	cd $(NOTEBOOKDIR) && ipython nbconvert --to=html $(notdir $(NSNPSM)) --template html.tpl && cd $(CURDIR) && \
-	git add $(NSNPMS) && \
+	git add $(NSNPSM) && \
 	git commit -m "Updated snps matrix report" && \
 	git push
 
