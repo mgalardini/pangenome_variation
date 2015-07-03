@@ -127,7 +127,8 @@ if __name__ == "__main__":
         # For each TFBS hitting this SNP,
         # output some details
         for x in tfbs[r.CHROM]:
-            if (r.POS >= x[2] and r.POS <= x[3]) or len(set(range(r.POS, r.POS+len(str(r.REF)))).intersection(range(x[2], x[3]+1))) != 0:
+            #if (r.POS > x[2] and r.POS <= x[3]) or len(set(range(r.POS, r.POS+len(str(r.REF)))).intersection(range(x[2]+1, x[3]+1))) != 0:
+            if (r.POS > x[2] and r.POS <= x[3]):
                 pssm = os.path.join(options.pssm, '%s.pssm.fasta'%x[0].lower().replace('-', ''))
                 # Only SNPs allowed here
                 # Consider multiple SNPs in the same long variant!
@@ -144,18 +145,19 @@ if __name__ == "__main__":
                     
                     for pos, ref, n in muts:
                         # Only allow the SNPS inside the TFBS
-                        if pos not in range(x[2], x[3]+1):
+                        if pos not in range(x[2]+1, x[3]+1):
                             continue
                         # Derive the position in the TFBS using the strand information
                         if x[-1] == '+':
-                            position = pos - x[2] +1 
+                            position = pos - x[2]
                         elif x[-1] == '-':
-                            position = -pos + x[3] 
+                            position = -pos + x[3] + 1
                         else:
                             # Contradictory information
                             position='.'
                         if position != '.':
-                            ic, d_IC = get_ic_position(d.get(pssm, None), position - 1, ref, n, seqs)
+                            position -= 1
+                            ic, d_IC = get_ic_position(d.get(pssm, None), position, ref, n, seqs)
                             if np.isnan(ic):
                                 ic = '.'
                                 d_IC = '.'
@@ -172,7 +174,7 @@ if __name__ == "__main__":
                             n,
                             '.',
                             'PASS',
-                            'POS=%s;IC=%s;dIC=%s;TF=%s;STRAND=%s;TARGET=%s'%(position - 1, ic, d_IC, x[0], x[-1], x[1]),]]))
+                            'POS=%s;IC=%s;dIC=%s;TF=%s;STRAND=%s;TARGET=%s'%(position, ic, d_IC, x[0], x[-1], x[1]),]]))
                             
 
 
