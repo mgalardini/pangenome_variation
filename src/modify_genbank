@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+'''
+Modify a GenBank so that it has locus_tags
+instead of protein IDs
+'''
+
+__author__ = "Marco Galardini"
+__version__ = '0.1.0'
+
+def get_options():
+    import argparse
+
+    # create the top-level parser
+    description = "Modify protein IDs in a genbank file"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'add_uniprot')
+    parser.add_argument('genbank', action='store',
+                        help='GenBank file to be modified')
+    parser.add_argument('outfile', action='store',
+                        help='GenBank output file')
+    
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    import sys
+    import os
+    from Bio import SeqIO
+
+    options = get_options()
+
+    fout = open(options.outfile, 'w')
+
+    for s in SeqIO.parse(options.genbank, 'genbank'):
+        # Only CDS
+        for f in filter(lambda x: x.type == 'CDS' and
+                'protein_id' in x.qualifiers, s.features):
+            f.qualifiers['protein_id'] = [f.qualifiers['locus_tag'][0]]
+        SeqIO.write(s, fout, 'genbank')
