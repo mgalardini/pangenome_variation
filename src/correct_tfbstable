@@ -91,7 +91,7 @@ def scorePSSM(seqs, m, seq_type, match=True, background=0):
         scores = np.array(scores)
         ic = sum(m_ic)
     else:
-        pwm = m.counts.normalize()
+        pwm = m.counts.normalize(pseudocounts=background)
         seqs.alphabet = pwm.alphabet
 
         scores = pwm.log_odds(background).calculate(seqs)
@@ -109,7 +109,7 @@ def makePWM(m, seq_type, background=0):
         background = dict()
         for key in namespaces[seq_type]:
             background[key] = 1/float(len(namespaces[seq_type]))
-    pwm = m.counts.normalize()
+    pwm = m.counts.normalize(pseudocounts=background)
     return pwm
 
 def score_array(pwm, seq):
