@@ -8,6 +8,8 @@ SRCDIR = $(CURDIR)/src
 FILESDIR = $(CURDIR)/files
 # Directory containing the target genomes fasta files
 TARGETSDIR = $(CURDIR)/genomes
+# gkm-SVM directory
+GKDIR = $(CURDIR)/gkmsvm
 # GFF3 directory
 GFFDIR = $(CURDIR)/gff
 # Output directory for kSNP
@@ -440,6 +442,31 @@ $(TFBSTABLE): $(TFBS) $(PSSM) $(GBK)
 	$(SRCDIR)/correct_tfbstable $(TFBSTABLE).tmp $(PSSMDIR) $(GBK) > $(TFBSTABLE)
 
 ########################
+## gkm-SVM generation ##
+########################
+
+POSITIVESET = $(GKDIR)/positive.fasta
+NEGATIVESET = $(GKDIR)/negative.fasta
+
+$(POSITIVESET): $(GBK) $(TFBSTABLE)
+	$(SRCDIR)/generate_sets $(GBK) $(TFBSTABLE) 40 $(POSITIVESET) $(NEGATIVESET) --intergenic
+
+KERNEL = $(GKDIR)/kernel.out
+$(KERNEL): $(POSITIVESET)
+	$(GKDIR)/gkmsvm_kernel -d 3 $(POSITIVESET) $(NEGATIVESET) $(KERNEL)
+
+SVMALPHA = $(GKDIR)/svmtrain_svalpha.out
+SVSEQ = $(GKDIR)/svmtrain_svseq.fa
+$(SVMALPHA): $(KERNEL) $(POSITIVESET) 
+	$(GKDIR)/gkmsvm_train $(KERNEL) $(POSITIVESET) $(NEGATIVESET) $(shell basename $(SVMALPHA) _svalpha.out)
+
+WEIGHTS = $(GKDIR)/weights.txt
+$(WEIGHTS): $(SVMALPHA)
+	$(SRCDIR)/nrkmers 10 $(GKDIR)/nr10.fasta
+	$(GKDIR)/gkmsvm_classify -d 3 $(GKDIR)/nr10.fasta $(SVSEQ) $(SVMALPHA) $(GKDIR)/nr10_scores.txt
+	$(SRCDIR)/generate_weights $(GKDIR)/nr10_scores.txt > $(WEIGHTS)
+
+########################
 ## Reports generation ##
 ########################
 
@@ -497,8 +524,9 @@ nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS) $(KNONSYNVCFS)
 tfbs: $(MTFBSVCFS) $(PTFBSVCFS) $(KTFBSVCFS)
 stop: $(PSTOPVCFS)
 regulondb: $(TFBSTABLE)
+gksvm: $(WEIGHTS)
 pangenome: $(RPANGENOME)
 snps: $(RSNPSM)
 stops: $(RSTOP)
 
-.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn tfbs stop regulondb pangenome snps stops
+.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn tfbs stop regulondb gksvm pangenome snps stops

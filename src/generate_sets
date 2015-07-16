@@ -1,0 +1,122 @@
+#!/usr/bin/env python
+
+# Copyright (C) <2015> EMBL-European Bioinformatics Institute
+
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Neither the institution name nor the name xmut can
+# be used to endorse or promote products derived from this
+# software without prior written permission. For written
+# permission, please contact <marco@ebi.ac.uk>.
+
+# Products derived from this software may not be called
+# xmut nor may xmut appear in their names
+# without prior written permission of the developers.
+# You should have received a copy of the GNU General Public
+# License along with this program. If not, see
+# <http://www.gnu.org/licenses/>.
+
+__author__ = "Marco Galardini"
+__version__ = "0.0.1"
+
+def get_options():
+    import argparse
+
+    # create the top-level parser
+    description = "Generate a positive/negative set for gkm-SVM"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'generate_sets')
+    parser.add_argument('genbank', action='store',
+                        help='Genome genbank file')
+    parser.add_argument('tfbs', action='store',
+                        help='TFBS table (derived from RegulonDB)')
+    parser.add_argument('window', action='store',
+                        type=int,
+                        help='Minimum sequence length for set creation [Default: 40]')
+    parser.add_argument('positive', action='store',
+                        help='Output file 1')
+    parser.add_argument('negative', action='store',
+                        help='Output file 2')
+
+    parser.add_argument('--intergenic', action='store_true',
+        default=False,
+        help='Only use intergenic regions [Default: any random sequence]')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    import sys
+    from Bio import SeqIO
+    import random
+
+    options = get_options()
+
+    ds = {s.id:s for s in SeqIO.parse(options.genbank, 'genbank')}
+
+    dcds = {s.id:{(int(f.location.start),int(f.location.end))
+                  for f in s.features
+                  if f.type == 'CDS' and 'pseudo' not in f.qualifiers}
+            for s in SeqIO.parse(options.genbank, 'genbank')}
+
+    positive = set()
+    positive_pos = set()
+    negative = set()
+    negative_pos = set()
+
+    for l in open(options.tfbs):
+        tf, locus, start, end, strand, x1, x2, x3, chrom, x4, x5, x6, x7 = l.rstrip().split('\t')
+        start = int(start)
+        end = int(end)
+        tf_len = end - start + 1
+        if options.window > 0:
+            if tf_len < options.window:
+                start = int(start - ((options.window - tf_len)/2.))
+                end = int(end + ((options.window - tf_len)/2.))
+        positive.add( str(ds[chrom][start:end].seq) )
+        positive_pos.add( (start, end) )
+
+    while len(negative) < len(positive):
+        chrom = random.choice( list(ds.keys()) )
+        start = random.randint(0, len(ds[chrom])-options.window)
+        end = start + options.window -1
+        if (start, end) in positive_pos or (start, end) in negative_pos:
+            continue
+        elif len( [1
+                   for (s, e) in positive_pos
+                   if s <= start <= e or s <= end <= e] ) > 0:
+            continue
+        elif len( [1
+                   for (s, e) in negative_pos
+                   if s <= start <= e or s <= end <= e] ) > 0:
+            continue
+        elif options.intergenic and len( [1
+                                          for (s, e) in dcds[chrom]
+                                          if s <= start <= e or s <= end <= e] ) > 0:
+            continue
+        negative.add( str(ds[chrom][start:end].seq) )
+        negative_pos.add( (start, end) )
+
+    i = 0
+    f = open(options.positive, 'w')
+    for s in positive:
+        f.write('>%s\n%s\n'%(i, s))
+        i += 1
+    f.close()
+
+    f = open(options.negative, 'w')
+    for s in negative:
+        f.write('>%s\n%s\n'%(i, s))
+        i += 1
+    f.close()
+
