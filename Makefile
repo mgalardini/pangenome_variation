@@ -470,6 +470,15 @@ $(RSNPSM): $(PVCFS) $(GBK) $(CONSERVATION) $(TREERESTRICTED)
 	git commit -m "Updated snps matrix report" && \
 	git push
 
+NSTOP = $(NOTEBOOKDIR)/stop_codons.ipynb
+RSTOP = $(NOTEBOOKDIR)/stop_codons.html
+$(RSTOP): $(PVCFS) $(GBK)
+	runipy -o $(NSTOP) && \
+	cd $(NOTEBOOKDIR) && ipython nbconvert --to=html $(notdir $(NSTOP)) --template html.tpl && cd $(CURDIR) && \
+	git add $(NSTOP) && \
+	git commit -m "Updated stop codons report" && \
+	git push
+
 #########################
 ## Targets definitions ##
 #########################
@@ -490,5 +499,6 @@ stop: $(PSTOPVCFS)
 regulondb: $(TFBSTABLE)
 pangenome: $(RPANGENOME)
 snps: $(RSNPSM)
+stops: $(RSTOP)
 
-.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn tfbs stop regulondb pangenome snps
+.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn tfbs stop regulondb pangenome snps stops
