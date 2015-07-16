@@ -155,6 +155,7 @@ PVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .vcf,$(notd
 PMERGEDVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .merged.vcf,$(notdir $(basename $(GENOME))))))
 PANNOTATEDVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .annotated.vcf,$(notdir $(basename $(GENOME))))))
 PNONSYNVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .nonsyn.vcf,$(notdir $(basename $(GENOME))))))
+PSTOPVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .stop.vcf,$(notdir $(basename $(GENOME))))))
 PTFBSVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .tfbs.vcf,$(notdir $(basename $(GENOME))))))
 
 $(POUT)/%.vcf: $(TARGETSDIR)/%.fasta $(REPEATS)	$(GENOME)
@@ -176,6 +177,9 @@ $(POUT)/%.annotated.vcf: $(POUT)/%.merged.vcf
 
 $(POUT)/%.nonsyn.vcf: $(POUT)/%.annotated.vcf
 	cat $< | python2 $(SRCDIR)/annvcf2nonsyn - > $@
+
+$(POUT)/%.stop.vcf: $(POUT)/%.annotated.vcf $(GBK)
+	cat $< | python2 $(SRCDIR)/annvcf2stops - $(GBK) > $@
 
 $(POUT)/%.tfbs.vcf: $(POUT)/%.vcf $(TFBSTABLE)
 	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) $(FILESDIR)/pssm - > $@
@@ -472,7 +476,7 @@ $(RSNPSM): $(PVCFS) $(GBK) $(CONSERVATION) $(TREERESTRICTED)
 
 all: ksnp parsnp map conservation oma kmers roary
 ksnp: $(KVCFS)
-parsnp: $(PVCFS)
+parsnp: $(PVCFS) $(PANNOTATEDVCFS) $(PMERGEDVCFS)
 map: $(MVCFS)
 consensus: $(CVCFS) $(MVCFS) $(PVCFS) $(KVCFS)
 conservation: $(CONSERVATION) $(APPROXPANGENOME)
@@ -482,8 +486,9 @@ roary: $(ROARYOUT)
 tree: $(TREE) $(TREERESTRICTED)
 nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS) $(KNONSYNVCFS)
 tfbs: $(MTFBSVCFS) $(PTFBSVCFS) $(KTFBSVCFS)
+stop: $(PSTOPVCFS)
 regulondb: $(TFBSTABLE)
 pangenome: $(RPANGENOME)
 snps: $(RSNPSM)
 
-.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn tfbs regulondb pangenome snps
+.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn tfbs stop regulondb pangenome snps

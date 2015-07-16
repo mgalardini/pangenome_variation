@@ -1,0 +1,212 @@
+#!/usr/bin/env python
+'''
+Extract all stop codons mutations from an annotated VCF file
+
+Works with VCF files annotated with snpEFF
+'''
+
+__author__ = "Marco Galardini"
+__version__ = '0.1.0'
+
+def get_options():
+    import argparse
+    import sys
+
+    # create the top-level parser
+    description = "Output all stop codons mutations (from annotated vcf)"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'annvcf2stop')
+
+    parser.add_argument('vcf', action='store',
+                        type=argparse.FileType('rb'),
+                        help='VCF stream or file ("-" for STDIN)')
+    parser.add_argument('genome', action='store',
+                        help='Genome genbank file (to get protein lenghts)')
+    
+    parser.add_argument('--ids', action='store',
+                        default=None,
+                        help='CDS IDs conversion file (Uniprot -> locus_tag) [Default: None]')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    import sys
+    import os
+    import vcf
+    from Bio import SeqIO
+    from Bio.SeqUtils import seq1
+
+    options = get_options()
+
+    # Read the ID conversions, if any
+    id_conv = {}
+    if options.ids is not None:
+        for l in open(options.ids):
+            uniprot, locus = l.rstrip().split()
+            id_conv[locus] = uniprot
+
+    # Read the protein lengths
+    prot_len = {}
+    for s in SeqIO.parse(options.genome, 'genbank'):
+        for f in s.features:
+            if f.type != 'CDS' or 'locus_tag' not in f.qualifiers or 'translation' not in f.qualifiers or 'pseudo' in f.qualifiers:
+                continue
+            prot_len[f.qualifiers['locus_tag'][0]] = len(f.qualifiers['translation'][0])
+
+    vcf_header = ['##fileformat=VCFv4.0',
+       '##INFO=<ID=PROTLEN,Number=1,Type=String,Description="Protein length">',
+       '##INFO=<ID=STOP,Number=1,Type=String,Description="STOP event type">',
+       '##INFO=<ID=MUT,Number=1,Type=String,Description="Protein variant">',
+       '##INFO=<ID=CDS,Number=1,Type=String,Description="CDS id">',
+       '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO']
+
+    # Spit out the vcf header
+    for l in vcf_header:
+        print(l)
+
+    for r in vcf.Reader(options.vcf):
+        var = r.ALT[0]
+
+        # Look if there is any stop_gain variant in there
+        # Must belong to the variant that we are supplying of course!
+        nonsyn = [x for x in r.INFO['ANN']
+                  if x.split('|')[0] == var and
+                  'stop_gained' in x.split('|')[1]]
+        for nvar in nonsyn:
+            cds = nvar.split('|')[6]
+            protlen = prot_len.get(cds, '?')
+            if options.ids is not None:
+                cds = id_conv.get(cds, cds)
+            mut = nvar.split('|')[10]
+            
+            m = mut[2:-1]
+            # Get start position
+            i = 0
+            while True:
+                i += 1
+                m = m[1:]
+                try:
+                    int(m)
+                    break
+                except:
+                    continue
+            
+            # Multiple Aa become on stop codon?
+            refs = []
+            j = 0
+            mut = mut[2:]
+            while j < i:
+                wt_aa = mut[j:j+3]
+                refs.append( seq1(wt_aa) )
+                j += 3
+
+            print('\t'.join([str(x) for x in [r.CHROM,
+                r.POS,
+                '.',
+                r.REF,
+                var,
+                '.',
+                'PASS',
+                'MUT=%s%s*;CDS=%s;STOP=stop_gained;PROTLEN=%s'%(''.join(refs), m, 
+                    cds, protlen),]]))
+        
+        # Look if there is any stop_lost variant in there
+        # Must belong to the variant that we are supplying of course!
+        nonsyn = [x for x in r.INFO['ANN']
+                  if x.split('|')[0] == var and
+                  'stop_lost' in x.split('|')[1]]
+        for nvar in nonsyn:
+            cds = nvar.split('|')[6]
+            protlen = prot_len.get(cds, '?')
+            if options.ids is not None:
+                cds = id_conv.get(cds, cds)
+            mut = nvar.split('|')[10]
+            
+            # Remove the final 'ext*?'
+            if mut[-5:] != 'ext*?':
+                sys.stderr.write('Unknown stop_lost event (%s)\n'%mut)
+                sys.exit(2)
+            m = mut[2:-5]
+            # Get start position
+            i = 0
+            while True:
+                i += 1
+                m = m[1:-1]
+                try:
+                    int(m)
+                    break
+                except:
+                    continue
+            
+            # Multiple Aa become on stop codon?
+            refs = []
+            muts = []
+            j = 0
+            mut = mut[2:-5]
+            while j < i:
+                wt_aa = mut[j:j+3]
+                mut_aa = mut[i+len(m)+j:i+len(m)+3+j]
+                if wt_aa == 'Ter':
+                    refs.append( '*' )
+                else: 
+                    refs.append( seq1(wt_aa) )
+                muts.append( seq1(mut_aa) )
+                j += 3
+
+            print('\t'.join([str(x) for x in [r.CHROM,
+                r.POS,
+                '.',
+                r.REF,
+                var,
+                '.',
+                'PASS',
+                'MUT=%s%s%s;CDS=%s;STOP=stop_lost;PROTLEN=%s'%(''.join(refs), m,
+                    ''.join(muts),
+                    cds, protlen),]]))
+        
+        # Look if there is any start_lost variant in there
+        # Must belong to the variant that we are supplying of course!
+        nonsyn = [x for x in r.INFO['ANN']
+                  if x.split('|')[0] == var and
+                  'start_lost' in x.split('|')[1]]
+        for nvar in nonsyn:
+            cds = nvar.split('|')[6]
+            protlen = prot_len.get(cds, '?')
+            if options.ids is not None:
+                cds = id_conv.get(cds, cds)
+            mut = nvar.split('|')[10]
+            
+            m = mut[2:-1]
+            # Get start position
+            i = 0
+            while True:
+                i += 1
+                m = m[1:]
+                try:
+                    int(m)
+                    break
+                except:
+                    continue
+            
+            # Multiple Aa become on stop codon?
+            refs = []
+            j = 0
+            mut = mut[2:]
+            while j < i:
+                wt_aa = mut[j:j+3]
+                refs.append( seq1(wt_aa) )
+                j += 3
+
+            print('\t'.join([str(x) for x in [r.CHROM,
+                r.POS,
+                '.',
+                r.REF,
+                var,
+                '.',
+                'PASS',
+                'MUT=%s%s?;CDS=%s;STOP=start_lost;PROTLEN=%s'%(''.join(refs), m, 
+                    cds, protlen),]]))
+                            
