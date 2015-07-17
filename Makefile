@@ -458,7 +458,7 @@ $(KERNEL): $(POSITIVESET)
 SVMALPHA = $(GKDIR)/svmtrain_svalpha.out
 SVSEQ = $(GKDIR)/svmtrain_svseq.fa
 $(SVMALPHA): $(KERNEL) $(POSITIVESET) 
-	$(GKDIR)/gkmsvm_train $(KERNEL) $(POSITIVESET) $(NEGATIVESET) $(shell basename $(SVMALPHA) _svalpha.out)
+	$(GKDIR)/gkmsvm_train $(KERNEL) $(POSITIVESET) $(NEGATIVESET) $(GKDIR)/$(shell basename $(SVMALPHA) _svalpha.out)
 
 WEIGHTS = $(GKDIR)/weights.txt
 $(WEIGHTS): $(SVMALPHA)
