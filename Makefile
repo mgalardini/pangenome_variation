@@ -59,6 +59,8 @@ RDIR = $(CURDIR)/roary
 SNPEFFDIR = $(CURDIR)/snpEff
 # Outgroups (genomes that belong to another species or are very diverse)
 OUTGROUPS = outgroups.txt
+# Evolution experiments
+EVOLUTION = evolution_experiment.txt
 
 # Parameters
 # snpEff annotation name
@@ -185,6 +187,11 @@ $(POUT)/%.stop.vcf: $(POUT)/%.annotated.vcf $(GBK)
 
 $(POUT)/%.tfbs.vcf: $(POUT)/%.vcf $(TFBSTABLE)
 	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) $(FILESDIR)/pssm - > $@
+
+# Common variants
+PCOMMON = $(POUT)/common.tsv
+$(PCOMMON): $(PVCFS) $(EVOLUTION)
+	$(SRCDIR)/common_variants --exclude $(EVOLUTION) --frequency 0.8 $(PVCFS) > $(PCOMMON)
 
 ##############################
 ## Pairwise reads alignment ##
@@ -514,6 +521,7 @@ all: ksnp parsnp map conservation oma kmers roary
 ksnp: $(KVCFS)
 parsnp: $(PVCFS) $(PANNOTATEDVCFS) $(PMERGEDVCFS)
 map: $(MVCFS)
+common: $(PCOMMON)
 consensus: $(CVCFS) $(MVCFS) $(PVCFS) $(KVCFS)
 conservation: $(CONSERVATION) $(APPROXPANGENOME)
 oma: $(OTSV)
@@ -529,4 +537,4 @@ pangenome: $(RPANGENOME)
 snps: $(RSNPSM)
 stops: $(RSTOP)
 
-.PHONY: all ksnp parsnp map conservation oma kmers roary tree nonsyn tfbs stop regulondb gksvm pangenome snps stops
+.PHONY: all ksnp parsnp map common conservation oma kmers roary tree nonsyn tfbs stop regulondb gksvm pangenome snps stops

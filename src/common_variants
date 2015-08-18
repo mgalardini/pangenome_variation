@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+
+__author__ = "Marco Galardini"
+__version__ = '0.1.0'
+
+def get_options():
+    import argparse
+    import sys
+
+    # create the top-level parser
+    description = "Output the most frequent variants"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'common_variants')
+
+    parser.add_argument('vcf', action='store',
+                        nargs='+',
+                        help='VCF file')
+    
+    parser.add_argument('--exclude', action='store',
+                        default=None,
+                        help='Excluded strains [Default: consider all]')
+    
+    parser.add_argument('--frequency', action='store',
+                        type=float,
+                        default=0.8,
+                        help='SNPs frequency cutoff [Default: 0.8]')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    import sys
+    import os
+    import vcf
+    import numpy as np
+    import pandas as pd
+ 
+    options = get_options()
+
+    # Read the excluded strains, if any
+    exclude = set()
+    if options.exclude is not None:
+        for l in open(options.exclude):
+            exclude.add( l.rstrip() )
+
+    # Create a SNPs matrix
+    pos = {}
+    for f in options.vcf:
+        g = os.path.split(f)[-1].split('.')[0]
+        if g.split('_')[0] in exclude:
+            continue
+        for r in vcf.Reader(open(f)):
+            pos[ (r.POS, str(r.ALT[0])) ] = pos.get((r.POS, str(r.ALT[0])),
+                                                        {})
+            pos[ (r.POS, str(r.ALT[0])) ][g] = 1
+    snps = pd.DataFrame(pos)
+
+    # Missing values mean that SNP is not there
+    snps.replace(np.nan, 0, regex=True, inplace=True)
+
+    all_snps = snps.T.sum(axis=1)/float(snps.shape[0])
+
+    for x,z in all_snps[all_snps >= options.frequency].index:
+        print('%s\t%s'%(x, z))
