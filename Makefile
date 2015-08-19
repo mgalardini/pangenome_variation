@@ -397,7 +397,7 @@ $(KTABLE): $(KCOUNTS) $(REFERENCECOUNT)
 	echo -e "word" $(notdir $(basename $(REFERENCECOUNT))) $(NAMES) > $(KTMP) && \
 	paste $(REFERENCECOUNT) $(KCOUNTS) >> $(KTMP) && \
 	gzip $(KTMP) && \
-	zcat $(KTABLE) | tail -n+2 | split -l 2000000 - $(KMOUT)/kmer_split_ && \
+	zcat $(KTABLE) | tail -n+2 | split -l 10000000 - $(KMOUT)/kmer_split_ && \
 	for i in $(ls $(KMOUT)/kmer_split_*.gz); do sed -i "1i$$(zcat $(KTABLE) | head -n 1)" $i; done && \
 	gzip $(KMOUT)/kmer_split_*
 
