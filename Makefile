@@ -398,7 +398,7 @@ $(KTABLE): $(KCOUNTS) $(REFERENCECOUNT)
 	paste $(REFERENCECOUNT) $(KCOUNTS) >> $(KTMP) && \
 	gzip $(KTMP) && \
 	zcat $(KTABLE) | tail -n+2 | split -l 10000000 - $(KMOUT)/kmer_split_ && \
-	for i in $(ls $(KMOUT)/kmer_split_*.gz); do sed -i "1i$$(zcat $(KTABLE) | head -n 1)" $i; done && \
+	for i in $(ls $(KMOUT)/kmer_split_*); do sed -i "1i$$(zcat $(KTABLE) | head -n 1)" $i; done && \
 	gzip $(KMOUT)/kmer_split_*
 
 #################################
