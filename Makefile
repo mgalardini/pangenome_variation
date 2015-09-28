@@ -374,11 +374,11 @@ $(KMOUT):
 	mkdir -p $(KMOUT)/counts
 
 $(KMOUT)/mers/%.jf: $(TARGETSDIR)/%.fasta $(KMOUT)
-	$(JELLYFISHDIR)/jellyfish count -m $(WORD) -s $(KHASH)M $< -o $@
+	$(JELLYFISHDIR)/jellyfish count -C -m $(WORD) -s $(KHASH)M $< -o $@
 
 REFERENCEKMER = $(KMOUT)/genome.jf
 $(REFERENCEKMER): $(KMOUT)
-	$(JELLYFISHDIR)/jellyfish count -m $(WORD) -s $(KHASH)M $(GENOME) -o $(REFERENCEKMER)
+	$(JELLYFISHDIR)/jellyfish count -C -m $(WORD) -s $(KHASH)M $(GENOME) -o $(REFERENCEKMER)
 
 ALLGENOMES = all.fasta
 $(ALLGENOMES): $(GENOME)
