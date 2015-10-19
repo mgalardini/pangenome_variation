@@ -1,0 +1,19 @@
+#!/usr/bin/env python
+
+import sys
+import argparse
+import csv
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate genomes ID on the fly")
+    args = parser.parse_args(sys.argv[1:])
+    reader = csv.reader(sys.stdin, delimiter='\t')
+    for row in reader:
+        nt_id = row[0]
+        genome_id = row[1]
+        print('\t'.join(['_'.join([nt_id, genome_id]),
+                         row[5]]))
+
+if __name__ == "__main__":
+    main()
