@@ -165,9 +165,9 @@ PTFBSVCFS = $(foreach GENOME,$(GENOMES),$(addprefix $(POUT)/,$(addsuffix .tfbs.v
 $(POUT)/%.vcf: $(TARGETSDIR)/%.fasta $(REPEATS)	$(GENOME)
 	mkdir -p $(POUT)/$(basename $(notdir $<))
 	mkdir -p $(POUT)/$(basename $(notdir $<))/input
-	echo cp $(GENOME) $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME))
-	echo cp $< $(POUT)/$(basename $(notdir $<))/input
-	echo $(PARSNP)/parsnp -r $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME)) -d $(POUT)/$(basename $(notdir $<))/input -p $(PCPU) -v -c -o $(POUT)/$(basename $(notdir $<))/output
+	cp $(GENOME) $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME))
+	cp $< $(POUT)/$(basename $(notdir $<))/input
+	$(PARSNP)/parsnp -r $(POUT)/$(basename $(notdir $<))/input/$(notdir $(GENOME)) -d $(POUT)/$(basename $(notdir $<))/input -p $(PCPU) -v -c -o $(POUT)/$(basename $(notdir $<))/output
 	harvesttools -i $(POUT)/$(basename $(notdir $<))/output/parsnp.ggr -V $@.vcf && \
 		bedtools subtract -a $@.vcf -b $(REPEATS) > $@.vcf.vcf && \
 		$(SRCDIR)/parsnp2vcf $@.vcf.vcf $@ && \
