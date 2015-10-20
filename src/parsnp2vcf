@@ -39,6 +39,10 @@ def get_options():
     parser.add_argument('outvcf', action='store',
                         help='output VCF file')
     
+    parser.add_argument('--template', action='store',
+                        default=None,
+                        help='template VCF file')
+    
     parser.add_argument('--version', action='version',
                          version='%(prog)s '+__version__)
 
@@ -46,11 +50,32 @@ def get_options():
 
 if __name__ == "__main__":
     import vcf
+    import sys
 
     options = get_options()
 
-    reader = vcf.Reader(open(options.invcf))
-    w = vcf.Writer(open(options.outvcf, 'w'), reader)
+    # handle empty VCF files
+    try:
+        reader = vcf.Reader(open(options.invcf))
+    except StopIteration:
+        # Just write the header of the template
+        if options.template is None:
+            f = open(options.outvcf, 'w')
+            for l in open(options.invcf):
+                if l.startswith('#'):
+                    f.write(l)
+            f.close()
+        else:
+            f = open(options.outvcf, 'w')
+            for l in open(options.template):
+                if l.startswith('#'):
+                    f.write(l)
+            f.close()
+        sys.exit(0)
+    if options.template is None:
+        w = vcf.Writer(open(options.outvcf, 'w'), reader)
+    else:
+        w = vcf.Writer(open(options.outvcf, 'w'), vcf.Reader(open(options.template)))
 
     for r in vcf.Reader(open(options.invcf)):
         if r.FILTER is not None and len(r.FILTER) > 0:
