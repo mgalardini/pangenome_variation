@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+# Copyright (C) <2015> EMBL-European Bioinformatics Institute
+
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Neither the institution name nor the name pangenome_variation
+# can be used to endorse or promote products derived from
+# this software without prior written permission.
+# For written permission, please contact <marco@ebi.ac.uk>.
+
+# Products derived from this software may not be called pangenome_variation
+# nor may pangenome_variation appear in their names without prior written
+# permission of the developers. You should have received a copy
+# of the GNU General Public License along with this program.
+# If not, see <http://www.gnu.org/licenses/>.
+
+__author__ = "Marco Galardini"
+__version__ = '0.1.0'
+
+def get_options():
+    import argparse
+
+    # create the top-level parser
+    description = "Get the outliers from a newick tree (MAD-based)"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'nwk2outliers')
+
+    parser.add_argument('nwk', action='store',
+                        help='Newick tree')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+def mad_based_outlier(points, thresh=3):
+    import numpy as np
+    if len(points.shape) == 1:
+        points = points[:,None]
+    median = np.median(points, axis=0)
+    diff = np.sum((points - median)**2, axis=-1)
+    diff = np.sqrt(diff)
+    med_abs_deviation = np.median(diff)
+
+    modified_z_score = 0.6745 * diff / med_abs_deviation
+
+    return modified_z_score > thresh
+
+if __name__ == "__main__":
+    options = get_options()
+
+    from Bio import Phylo
+    import numpy as np
+    import pandas as pd
+
+    t = Phylo.read(options.nwk,
+                   'newick')
+
+    dists = {x.name:t.distance(t.root, x)
+             for x in t.get_terminals()}
+    d = pd.DataFrame(dists.values())
+    d.index= dists.keys()
+
+    for strain in d.loc[d.index[mad_based_outlier(d[0],
+                                                  thresh=3)]].index:
+        print(strain)
