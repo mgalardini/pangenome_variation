@@ -93,8 +93,11 @@ if __name__ == "__main__":
                 continue
             seq = f.qualifiers['translation'][0]
 
+            # product
+            prod = f.qualifiers.get('product', [''])[0]
+
             # Write
-            o.write('>%s\n%s\n'%(name, seq))
+            o.write('>%s %s\n%s\n'%(name, prod, seq))
 
     # Bye, come again
     o.close()
