@@ -45,8 +45,8 @@ def print_vars(vars, seq):
     muts = [(r.POS - start, r.REF, r.ALT[0]) for r in vars]
     mut = list(wt)
     for pos, ref, alt in muts:
-        if wt[pos] != ref:
-            raise ValueError('Reference %s, found %s'%(ref, wt[pos]))
+        #if wt[pos] != ref:
+        #    raise ValueError('Reference %s, found %s'%(ref, wt[pos]))
         mut[pos] = str(alt)
     m = ''
     for c in mut:
@@ -96,6 +96,9 @@ if __name__ == "__main__":
         elif r.POS - vars[-1].POS > options.window:
             print_vars(vars, d[vars[-1].CHROM])
             vars = []
+        # Pure INDEL
+        elif len(r.REF) != len(r.ALT[0]):
+            continue
         # Good to go
         else:
             vars.append(r)

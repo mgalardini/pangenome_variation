@@ -56,6 +56,8 @@ if __name__ == "__main__":
 
     for r in vcf.Reader(options.vcf):
         var = r.ALT[0]
+        if r.is_indel and len(str(r.REF)) != len(str(r.ALT[0])):
+            continue
         # Look if there is any missense variant in there
         # Must belong to the variant that we are supplying of course!
         nonsyn = [x for x in r.INFO['ANN']

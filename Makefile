@@ -201,6 +201,8 @@ $(PCOMMON): $(PVCFS) $(EVOLUTION)
 READS = $(wildcard $(READSDIR)/*)
 
 MVCFS = $(foreach READ,$(READS),$(addprefix $(MOUT)/,$(addsuffix .vcf,$(notdir $(READ)))))
+MANNOTATEDVCFS = $(foreach READ,$(READS),$(addprefix $(MOUT)/,$(addsuffix .annotated.vcf,$(notdir $(basename $(READ))))))
+MSTOPVCFS = $(foreach READ,$(READS),$(addprefix $(MOUT)/,$(addsuffix .stop.vcf,$(notdir $(basename $(READ))))))
 MNONSYNVCFS = $(foreach READ,$(READS),$(addprefix $(MOUT)/,$(addsuffix .nonsyn.vcf,$(notdir $(READ)))))
 MTFBSVCFS = $(foreach READ,$(READS),$(addprefix $(MOUT)/,$(addsuffix .tfbs.vcf,$(notdir $(READ)))))
 
@@ -210,17 +212,13 @@ $(GINDEX): $(GENOME)
 
 $(MOUT)/%.vcf: $(READSDIR)/% $(GINDEX)
 	mkdir -p $(MOUT)/$(basename $(notdir $<))
-	mkdir -p $(MOUT)/$(basename $(notdir $<))/trimmed
 	mkdir -p $(MOUT)/$(basename $(notdir $<))/subsampled
 	mkdir -p $(MOUT)/$(basename $(notdir $<))/aligned
 	mkdir -p $(MOUT)/$(basename $(notdir $<))/deduplicated
 	mkdir -p $(MOUT)/$(basename $(notdir $<))/realigned
-	interleave_pairs $(READSDIR)/$(basename $(notdir $<))/$(READ1) $(READSDIR)/$(basename $(notdir $<))/$(READ2) | \
-	trim_edges -l 9 --paired_reads | \
-	deinterleave_pairs -z -o $(MOUT)/$(basename $(notdir $<))/trimmed/$(READ1) $(MOUT)/$(basename $(notdir $<))/trimmed/$(READ2) && \
-	sample=$$($(SRCDIR)/get_subsample $(GENOME) $$(interleave_pairs $(MOUT)/$(basename $(notdir $<))/trimmed/$(READ1) $(MOUT)/$(basename $(notdir $<))/trimmed/$(READ2) | count_seqs | awk '{print $$2}') --coverage $(MAXCOVERAGE)) && \
-        seqtk sample -s$(SEED) $(MOUT)/$(basename $(notdir $<))/trimmed/$(READ1) $$sample > $(MOUT)/$(basename $(notdir $<))/subsampled/$(READ1) && \
-	seqtk sample -s$(SEED) $(MOUT)/$(basename $(notdir $<))/trimmed/$(READ2) $$sample > $(MOUT)/$(basename $(notdir $<))/subsampled/$(READ2) && \
+	sample=$$($(SRCDIR)/get_subsample $(GENOME) $$(interleave_pairs $(READSDIR)/$(basename $(notdir $<))/$(READ1) $(READSDIR)/$(basename $(notdir $<))/$(READ2) | count_seqs | awk '{print $$2}') --coverage $(MAXCOVERAGE)) && \
+        seqtk sample -s$(SEED) $(READSDIR)/$(basename $(notdir $<))/$(READ1) $$sample > $(MOUT)/$(basename $(notdir $<))/subsampled/$(READ1) && \
+	seqtk sample -s$(SEED) $(READSDIR)/$(basename $(notdir $<))/$(READ2) $$sample > $(MOUT)/$(basename $(notdir $<))/subsampled/$(READ2) && \
 	bwa mem -t $(MCPU) $(GENOME) $(MOUT)/$(basename $(notdir $<))/subsampled/$(READ1) $(MOUT)/$(basename $(notdir $<))/subsampled/$(READ2) | \
 	samtools view -Sb -q 25 -f 2 -F 256 - > $(MOUT)/$(basename $(notdir $<))/aligned/aln.bam && \
 	samtools sort $(MOUT)/$(basename $(notdir $<))/aligned/aln.bam $(MOUT)/$(basename $(notdir $<))/aligned/aln.sorted && \
@@ -253,8 +251,14 @@ $(MOUT)/%.vcf: $(READSDIR)/% $(GINDEX)
 	freebayes -f $(GENOME) --ploidy $(PLOIDY) --theta $(THETA) --genotype-qualities --standard-filters $(MOUT)/$(basename $(notdir $<))/realigned/aln.bam > $(MOUT)/$(basename $(notdir $<))/raw.vcf && \
 	vcffilter $(FILTER) $(MOUT)/$(basename $(notdir $<))/raw.vcf > $@
 
-$(MOUT)/%.nonsyn.vcf: $(MOUT)/%.vcf $(GBK)
-	cat $< | python2 $(SRCDIR)/vcf2nonsyn $(GBK) - > $@
+$(MOUT)/%.annotated.vcf: $(MOUT)/%.vcf
+	$(JAVA7) -jar $(SNPEFFDIR)/snpEff.jar ann $(SNPEFFCHROM) $< > $@
+
+$(MOUT)/%.nonsyn.vcf: $(MOUT)/%.annotated.vcf
+	cat $< | python2 $(SRCDIR)/annvcf2nonsyn - > $@
+
+$(MOUT)/%.stop.vcf: $(MOUT)/%.annotated.vcf $(GBK)
+	cat $< | python2 $(SRCDIR)/annvcf2stops - $(GBK) > $@
 
 $(MOUT)/%.tfbs.vcf: $(MOUT)/%.vcf $(TFBSTABLE)
 	cat $< | python2 $(SRCDIR)/vcf2tfbs $(TFBSTABLE) $(FILESDIR)/pssm - > $@
@@ -313,15 +317,19 @@ $(RDIR):
 $(GFFDIR):
 	mkdir -p $(GFFDIR)
 
+REFERENCEPROTEOME = genome.faa
+$(REFERENCEPROTEOME): $(GBK)
+	$(SRCDIR)/gbk2faa $(GBK) $(REFERENCEPROTEOME) 
+
 REFERENCEGFF = $(GFFDIR)/genome.gff
-$(REFERENCEGFF): $(GBK)
+$(REFERENCEGFF): $(GBK) $(GFFDIR)
 	src/gbk2gff $(GBK) $(REFERENCEGFF)
 
 GFFS = $(foreach GENOME,$(GENOMES),$(addprefix $(GFFDIR)/,$(addsuffix .gff,$(notdir $(basename $(GENOME))))))
 
-$(GFFDIR)/%.gff: $(TARGETSDIR)/%.fasta $(GFFDIR)
+$(GFFDIR)/%.gff: $(TARGETSDIR)/%.fasta $(GFFDIR) $(REFERENCEPROTEOME)
 	mkdir $(GFFDIR)/$(basename $(notdir $<))
-	-$(PROKKA)/prokka --cpus $(PROKKACPU) --outdir $(GFFDIR)/$(basename $(notdir $<)) --force --genus $(GENUS) --species $(SPECIES) --strain $(basename $(notdir $<)) --prefix $(basename $(notdir $<)) --compliant --locustag $(basename $(notdir $<)) $<
+	$(PROKKA)/prokka --norrna --notrna --proteins $(REFERENCEPROTEOME) --cpus $(PROKKACPU) --outdir $(GFFDIR)/$(basename $(notdir $<)) --force --genus $(GENUS) --species $(SPECIES) --strain $(basename $(notdir $<)) --prefix $(basename $(notdir $<)) --compliant --locustag $(basename $(notdir $<)) $<
 	mv $(GFFDIR)/$(basename $(notdir $<))/$(basename $(notdir $<)).gff $(GFFDIR)
 	-rm -rf $(GFFDIR)/$(basename $(notdir $<))
 
@@ -523,7 +531,7 @@ $(RSTOP): $(PVCFS) $(GBK)
 all: ksnp parsnp map conservation oma kmers roary
 ksnp: $(KVCFS)
 parsnp: $(PVCFS) $(PANNOTATEDVCFS) $(PMERGEDVCFS)
-map: $(MVCFS)
+map: $(MVCFS) $(MANNOTATEDVCFS)
 common: $(PCOMMON)
 consensus: $(CVCFS) $(MVCFS) $(PVCFS) $(KVCFS)
 conservation: $(CONSERVATION) $(APPROXPANGENOME)
@@ -531,9 +539,9 @@ oma: $(OTSV)
 kmers: $(KTABLE)
 roary: $(ROARYOUT)
 tree: $(TREE) $(TREERESTRICTED)
-nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS) $(KNONSYNVCFS)
-tfbs: $(MTFBSVCFS) $(PTFBSVCFS) $(KTFBSVCFS)
-stop: $(PSTOPVCFS)
+nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS)
+tfbs: $(MTFBSVCFS) $(PTFBSVCFS)
+stop: $(PSTOPVCFS) $(MSTOPVCFS)
 regulondb: $(TFBSTABLE)
 gksvm: $(WEIGHTS)
 pangenome: $(RPANGENOME)
