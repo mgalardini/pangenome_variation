@@ -62,6 +62,9 @@ OUTGROUPS = outgroups.txt
 # Evolution experiments
 EVOLUTION = evolution_experiment.txt
 
+# Useful handle for submission to a cluster
+SUBMIT = eval
+
 # Parameters
 # snpEff annotation name
 SNPEFFCHROM = NC_000913.3
@@ -364,8 +367,8 @@ $(OMAOUT)/%.tsv: $(PROTEOMEDIR)/% $(REFERENCEFAA) $(ORTHOXMLLIB) $(OMAOUT)
 	cp $(OMAPARAMETERS) $(OMAOUT)/$(basename $(notdir $<)) && \
 	cp $< $(OMAOUT)/$(basename $(notdir $<))/DB/target.fa && \
 	cp $(REFERENCEFAA) $(OMAOUT)/$(basename $(notdir $<))/DB/reference.fa && \
-	cd $(OMAOUT)/$(basename $(notdir $<)) && oma -n $(OCPU) && \
-       	python2 $(SRCDIR)/omah2tsv $(OMAOUT)/$(basename $(notdir $<))/Output/HierarchicalGroups.orthoxml $@
+	cd $(OMAOUT)/$(basename $(notdir $<)) && $(SUBMIT) "oma -n $(OCPU) && \
+       	python2 $(SRCDIR)/omah2tsv $(OMAOUT)/$(basename $(notdir $<))/Output/HierarchicalGroups.orthoxml $@"
 
 ####################
 ## K-mer counting ##
