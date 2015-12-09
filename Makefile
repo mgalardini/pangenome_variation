@@ -301,10 +301,14 @@ $(CONSERVATION): $(REFERENCEFAA) $(REFERENCEDIR)
 # 2. All genes conservation
 APPROXPANGENOME = $(ALLDIR)/bsr_matrix_values.txt
 $(APPROXPANGENOME): $(REFERENCEFAA) $(ALLDIR)
-	mkdir -p $(ALLDIR).tmp && \
-		cp $(TARGETSDIR)/*.fasta $(ALLDIR).tmp && \
-		cp $(GENOME) $(ALLDIR).tmp
-	cat $(REFERENCEFAA) $(PROTEOMEDIR)/*.faa > $(ALLDIR)/all.faa && \
+	mkdir -p $(ALLDIR).tmp
+	cp $(TARGETSDIR)/*.fasta $(ALLDIR).tmp
+	for genome in $$(cat $(OUTGROUPS)); do rm $(ALLDIR).tmp/$$genome.fasta; done
+	cp $(GENOME) $(ALLDIR).tmp
+	mkdir -p $(ALLDIR).faatmp && cp $(PROTEOMEDIR)/*.faa $(ALLDIR).faatmp && \
+	    for genome in $$(cat $(OUTGROUPS)); do rm $(ALLDIR).faatmp/$$genome.faa; done && \
+	    cat $(REFERENCEFAA) $(ALLDIR).faatmp/*.faa > $(ALLDIR)/all.faa && \
+	    rm -rf $(ALLDIR).faatmp	    
 	$(USEARCHDIR)/usearch -cluster_fast $(ALLDIR)/all.faa -id 0.9 -uc $(ALLDIR)/results.uc -centroids $(ALLDIR)/all.pep.tmp && \
 	$(SRCDIR)/remove_duplicates $(ALLDIR)/all.pep.tmp $(ALLDIR)/all.pep && \
 	cd $(ALLDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(ALLDIR).tmp -g all.pep -p $(LCPU)
@@ -340,7 +344,7 @@ ROARYOUT = $(RDIR)/gene_presence_absence.csv
 $(ROARYOUT): $(RDIR) $(REFERENCEGFF) $(GFFS)
 	mkdir -p $(GFFDIR)/outgroups && \
 	for genome in $$(cat $(OUTGROUPS)); do mv $(GFFDIR)/$$genome.gff $(GFFDIR)/outgroups; done
-	cd $(RDIR) && roary --group_limit 100000 -v -p $(RCPU) $(GFFDIR)/*.gff
+	cd $(RDIR) && roary -g 100000 -e -s -v -p $(RCPU) $(GFFDIR)/*.gff
 
 #############################################
 ## Pairwise gene content variability (OMA) ##
