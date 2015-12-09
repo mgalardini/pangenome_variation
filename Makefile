@@ -305,10 +305,6 @@ $(APPROXPANGENOME): $(REFERENCEFAA) $(ALLDIR)
 	cp $(TARGETSDIR)/*.fasta $(ALLDIR).tmp
 	for genome in $$(cat $(OUTGROUPS)); do rm $(ALLDIR).tmp/$$genome.fasta; done
 	cp $(GENOME) $(ALLDIR).tmp
-	mkdir -p $(ALLDIR).faatmp && cp $(PROTEOMEDIR)/*.faa $(ALLDIR).faatmp && \
-	    for genome in $$(cat $(OUTGROUPS)); do rm $(ALLDIR).faatmp/$$genome.faa; done && \
-	    cat $(REFERENCEFAA) $(ALLDIR).faatmp/*.faa > $(ALLDIR)/all.faa && \
-	    rm -rf $(ALLDIR).faatmp	    
 	$(USEARCHDIR)/usearch -cluster_fast $(ALLDIR)/all.faa -id 0.9 -uc $(ALLDIR)/results.uc -centroids $(ALLDIR)/all.pep.tmp && \
 	$(SRCDIR)/remove_duplicates $(ALLDIR)/all.pep.tmp $(ALLDIR)/all.pep && \
 	cd $(ALLDIR) && python2 $(CURDIR)/LS-BSR/ls_bsr.py -d $(ALLDIR).tmp -g all.pep -p $(LCPU)
