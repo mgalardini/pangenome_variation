@@ -53,6 +53,7 @@ USEARCHDIR = $(SOFTDIR)/usearch
 OMAOUT = $(CURDIR)/oout
 # Output dir for kmer counting
 KMOUT = $(CURDIR)/kmout
+KMLITEOUT = $(CURDIR)/kmliteout
 # Output dir for roary
 RDIR = $(CURDIR)/roary
 # Output dir for roary
@@ -412,6 +413,24 @@ $(KTABLE): $(KCOUNTS) $(REFERENCECOUNT)
 	for i in $(ls $(KMOUT)/kmer_split_*); do sed -i "1i$$(zcat $(KTABLE) | head -n 1)" $i; done && \
 	gzip $(KMOUT)/kmer_split_*
 
+###############################
+## K-mer counting (fsm-lite) ##
+###############################
+
+$(KMLITEOUT):
+	mkdir -p $(KMLITEOUT)
+
+KLITETABLE = $(KMLITEOUT)/kmers.txt.gz
+$(KLITETABLE): $(KMLITEOUT)
+	-rm $(KMLITEOUT)/input.txt 
+	for infile in $$(ls $(TARGETSDIR) | grep ".fasta" | awk -F'_' '{print $$1}' | sort | uniq); do \
+	  echo -e $$infile"\t"$(TARGETSDIR)/$$(ls $(TARGETSDIR) | grep $$infile | sort | uniq | tail -n 1) >> $(KMLITEOUT)/input.txt; \
+	done
+	fsm-lite -l $(KMLITEOUT)/input.txt -t $(KMLITEOUT)/tmp.txt -m 9 -M 100 -f 1 -s 1 -S 99 -v > $(KMLITEOUT)/kmers.txt && \
+	split -d -n l/16 $(KMLITEOUT)/kmers.txt $(KMLITEOUT)/fsm_out && \
+	gzip $(KMLITEOUT)/fsm_out* && \
+	gzip $(KMLITEOUT)/kmers.txt
+
 #################################
 ## Strains tree (using parsnp) ##
 #################################
@@ -540,6 +559,7 @@ consensus: $(CVCFS) $(MVCFS) $(PVCFS) $(KVCFS)
 conservation: $(CONSERVATION) $(APPROXPANGENOME)
 oma: $(OTSV)
 kmers: $(KTABLE)
+fsm: $(KLITETABLE)
 roary: $(ROARYOUT)
 tree: $(TREE) $(TREERESTRICTED)
 nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS)
@@ -551,4 +571,4 @@ pangenome: $(RPANGENOME)
 snps: $(RSNPSM)
 stops: $(RSTOP)
 
-.PHONY: all ksnp parsnp map common conservation oma kmers roary tree nonsyn tfbs stop regulondb gksvm pangenome snps stops
+.PHONY: all ksnp parsnp map common conservation oma kmers fsm roary tree nonsyn tfbs stop regulondb gksvm pangenome snps stops
