@@ -1,0 +1,6 @@
+#!/bin/bash
+
+for strain in $(find pout/ -maxdepth 1 -type f -name '*.nonsyn.vcf');
+do
+  echo $(basename $strain .nonsyn.vcf) $(grep -v '^#' $strain | wc -l);
+done
