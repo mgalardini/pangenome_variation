@@ -85,7 +85,7 @@ if __name__ == "__main__":
         print('\t'.join( ('#regulator', 'locus',
                           'tfbs start', 'tfbs end', 'tfbs strand',
                           'gene start', 'gene end', 'gene strand',
-                          'sequence id') ))
+                          'sequence id', 'sequence') ))
 
     # Read the almighty RegulonDB table
     locus = set()
@@ -98,6 +98,11 @@ if __name__ == "__main__":
         # TFBS without a position have to be skipped
         if s[3] == '0' and s[4] == '0':
             continue
+
+        if len(s) >= 12:
+            seq = s[11]
+        else:
+            seq = ''
 
         gene_name = s[9]
         # Gene name contains a "p" and possibly a number
@@ -134,7 +139,8 @@ if __name__ == "__main__":
                         locus_position[lc][0],
                         locus_position[lc][1],
                         locus_position[lc][2],
-                        locus_position[lc][3]) ))
+                        locus_position[lc][3],
+                        seq) ))
 
     if not options.details:
         for g in sorted(locus):
