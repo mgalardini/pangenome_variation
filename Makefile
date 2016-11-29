@@ -329,19 +329,11 @@ REFERENCEGFF = $(GFFDIR)/genome.gff
 $(REFERENCEGFF): $(GBK) $(GFFDIR)
 	src/gbk2gff $(GBK) $(REFERENCEGFF)
 
-GFFS = $(foreach GENOME,$(GENOMES),$(addprefix $(GFFDIR)/,$(addsuffix .gff,$(notdir $(basename $(GENOME))))))
-
-$(GFFDIR)/%.gff: $(TARGETSDIR)/%.fasta $(GFFDIR) $(REFERENCEPROTEOME)
-	mkdir $(GFFDIR)/$(basename $(notdir $<))
-	$(PROKKA)/prokka --norrna --notrna --proteins $(REFERENCEPROTEOME) --cpus $(PROKKACPU) --outdir $(GFFDIR)/$(basename $(notdir $<)) --force --genus $(GENUS) --species $(SPECIES) --strain $(basename $(notdir $<)) --prefix $(basename $(notdir $<)) --compliant --locustag $(basename $(notdir $<)) $<
-	mv $(GFFDIR)/$(basename $(notdir $<))/$(basename $(notdir $<)).gff $(GFFDIR)
-	-rm -rf $(GFFDIR)/$(basename $(notdir $<))
-
 ROARYOUT = $(RDIR)/gene_presence_absence.csv
 $(ROARYOUT): $(RDIR) $(REFERENCEGFF) $(GFFS)
-	mkdir -p $(GFFDIR)/outgroups && \
-	for genome in $$(cat $(OUTGROUPS)); do mv $(GFFDIR)/$$genome.gff $(GFFDIR)/outgroups; done
 	cd $(RDIR) && roary -g 100000 -e -s -v -p $(RCPU) $(GFFDIR)/*.gff
+	mkdir -p $(RDIR)/oout
+	for strain in $$(cut -d ',' -f 15- $(ROARYOUT) | head -n 1 | sed 's/"//g' | sed 's/,/\t/g' | rev | cut -f 2- | rev); do $(SUBMIT) "$(SRCDIR)/roary2oma $(ROARYOUT) $$strain > $(RDIR)/oout/$$strain.faa.tsv";done
 
 #############################################
 ## Pairwise gene content variability (OMA) ##
@@ -369,7 +361,7 @@ $(OMAOUT)/%.tsv: $(PROTEOMEDIR)/% $(REFERENCEFAA) $(ORTHOXMLLIB) $(OMAOUT)
 	cp $< $(OMAOUT)/$(basename $(notdir $<))/DB/target.fa && \
 	cp $(REFERENCEFAA) $(OMAOUT)/$(basename $(notdir $<))/DB/reference.fa && \
 	cd $(OMAOUT)/$(basename $(notdir $<)) && $(SUBMIT) "oma -n $(OCPU) && \
-       	python2 $(SRCDIR)/omah2tsv $(OMAOUT)/$(basename $(notdir $<))/Output/HierarchicalGroups.orthoxml $@"
+       	python2 $(SRCDIR)/omah2tsv $(OMAOUT)/$(basename $(notdir $<))/OutputFolder/HierarchicalGroups.orthoxml $@"
 
 ####################
 ## K-mer counting ##
@@ -446,18 +438,6 @@ $(TREE): $(GENOME) $(TOUT)
 	$(PARSNP)/parsnp -r $(TOUT)/input/$(notdir $(GENOME)) -d $(TOUT)/input -p $(PCPU) -v -c -o $(TOUT)/output && \
 	rm -rf $(TOUT)/input/
 
-############################################
-## Restricted strains tree (using parsnp) ##
-############################################
-
-TREERESTRICTED = $(TOUT)/output_restricted/parsnp_restricted.tree
-$(TREERESTRICTED): $(GENOME) $(TOUT)
-	mkdir -p $(TOUT)/input_restricted && \
-	cp $(GENOME) $(TOUT)/input_restricted/ && \
-	cp $(TARGETSDIR)/*.fasta $(TOUT)/input_restricted && \
-	for genome in $$(cat $(OUTGROUPS)); do rm $(TOUT)/input_restricted/$$genome.fasta; done && \
-	$(PARSNP)/parsnp -r $(TOUT)/input_restricted/$(notdir $(GENOME)) -d $(TOUT)/input_restricted -p $(PCPU) -v -c -o $(TOUT)/output_restricted && \
-	rm -rf $(TOUT)/input_restricted/
 
 ####################
 ## RegulonDB data ##
@@ -543,11 +523,6 @@ $(RSTOP): $(PVCFS) $(GBK)
 	runipy -o $(NSTOP) && \
 	cd $(NOTEBOOKDIR) && ipython nbconvert --to=html $(notdir $(NSTOP)) --template html.tpl && cd $(CURDIR) && \
 	git add $(NSTOP) && \
-	git commit -m "Updated stop codons report" && \
-	git push
-
-#########################
-## Targets definitions ##
 #########################
 
 all: ksnp parsnp map conservation oma kmers roary
@@ -561,10 +536,10 @@ oma: $(OTSV)
 kmers: $(KTABLE)
 fsm: $(KLITETABLE)
 roary: $(ROARYOUT)
-tree: $(TREE) $(TREERESTRICTED)
-nonsyn: $(MNONSYNVCFS) $(PNONSYNVCFS)
+tree: $(TREE)
+nonsyn: $(PNONSYNVCFS)
 tfbs: $(MTFBSVCFS) $(PTFBSVCFS)
-stop: $(PSTOPVCFS) $(MSTOPVCFS)
+stop: $(PSTOPVCFS) 
 regulondb: $(TFBSTABLE)
 gksvm: $(WEIGHTS)
 pangenome: $(RPANGENOME)

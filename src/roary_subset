@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+# Copyright (C) <2015> EMBL-European Bioinformatics Institute
+
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Neither the institution name nor the name roary_plots
+# can be used to endorse or promote products derived from
+# this software without prior written permission.
+# For written permission, please contact <marco@ebi.ac.uk>.
+
+# Products derived from this software may not be called roary_plots
+# nor may roary_plots appear in their names without prior written
+# permission of the developers. You should have received a copy
+# of the GNU General Public License along with this program.
+# If not, see <http://www.gnu.org/licenses/>.
+
+__author__ = "Marco Galardini"
+__version__ = '0.1.0'
+
+def get_options():
+    import argparse
+
+    # create the top-level parser
+    description ="Subset a Roary output table"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'roary_subset')
+
+    parser.add_argument('spreadsheet', action='store',
+                        help='Roary gene presence/absence spreadsheet')
+
+    parser.add_argument('--phenotypes', action='store',
+                        default=None,
+                        help='Phenotypes file (to get the strain list)')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    options = get_options()
+
+    import sys
+    import pandas as pd
+
+    # Load roary
+    roary = pd.read_table(options.spreadsheet,
+                         sep=',',
+                         low_memory=False)
+    # Drop the other info columns
+    r2 = roary.drop(list(roary.columns[:14]), axis=1)
+
+    strain = {x:list(sorted({z
+                             for z in r2.columns
+                             if z.startswith(x)}))
+              for x in set([y.split('_')[0]
+                            for y in r2.columns])}
+    
+    r2 = r2[[x[0] for k,x in strain.items()]]
+    r2.columns = [x.split('_')[0]
+                  for x in r2.columns]
+
+    if options.phenotypes is not None:
+        # Load phenotypes
+        p = pd.read_table(options.phenotypes,
+                          sep=',')
+        p.columns = ['strain', 'phenotype']
+        r2 = r2[p.strain]
+    
+    pd.concat([roary[roary.columns[:14]].T, r2.T]).T.to_csv(sys.stdout,
+                                                            sep=',',
+                                                            index=False)

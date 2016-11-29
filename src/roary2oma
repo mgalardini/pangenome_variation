@@ -1,0 +1,71 @@
+#!/usr/bin/env python
+
+# Copyright (C) <2015> EMBL-European Bioinformatics Institute
+
+# This program is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of
+# the License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+# Neither the institution name nor the name align_upstreams can
+# be used to endorse or promote products derived from this
+# software without prior written permission. For written
+# permission, please contact <marco@ebi.ac.uk>.
+
+# Products derived from this software may not be called
+# align_upstreams nor may align_upstreams appear in their names
+# without prior written permission of the developers.
+# You should have received a copy of the GNU General Public
+# License along with this program. If not, see
+# <http://www.gnu.org/licenses/>.
+
+__author__ = "Marco Galardini"
+__version__ = "0.0.1"
+
+def get_options():
+    import argparse
+
+    # create the top-level parser
+    description = "From roary output pairwise OMA tables"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'roary2oma')
+    parser.add_argument('table', action='store',
+                        help='Input presence/absence file')
+    parser.add_argument('target', action='store',
+                        help='target strain')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+def do_the_oma_thing(m, target, reference='genome'):
+    c = m[[reference, target]].dropna(how='all')
+    print('#orth_id\tprot_id\torg_id')
+    i = 1
+    for r, t in c.values:
+        if str(t) != 'nan':
+            for g in t.split('\t'):
+                print('%d\t%s\ttarget' % (i, g))
+        if str(r) != 'nan':
+            for g in r.split('\t'):
+                print('%d\t%s\treference' % (i, g))
+        i += 1
+
+if __name__ == "__main__":
+    import pandas as pd
+
+    options = get_options()
+
+    roary = pd.read_table(options.table,
+                         sep=',',
+                         low_memory=False)
+    roary.set_index('Gene', inplace=True)
+    roary.drop(list(roary.columns[:13]), axis=1, inplace=True)
+
+    do_the_oma_thing(roary, options.target)
