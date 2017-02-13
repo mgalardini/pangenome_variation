@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+
+__author__ = "Marco Galardini"
+__version__ = '0.1.0'
+
+def get_options():
+    import argparse
+    import sys
+
+    # create the top-level parser
+    description = "Remove the INFO fields from a VCF file"
+    parser = argparse.ArgumentParser(description = description,
+                                     prog = 'vcf_filter')
+
+    parser.add_argument('vcf', action='store',
+                        help='VCF file')
+
+    parser.add_argument('--version', action='version',
+                         version='%(prog)s '+__version__)
+
+    return parser.parse_args()
+
+if __name__ == "__main__":
+    import time
+    import sys
+    import os
+    import vcf
+    from Bio import SeqIO
+
+    options = get_options()
+
+    vcf_reader = vcf.Reader(open(options.vcf, 'r'))
+    vcf_writer = vcf.Writer(sys.stdout, vcf_reader)
+    written = 0
+    for record in vcf_reader:
+        record.INFO = {}
+        vcf_writer.write_record(record)
+        written += 1
+        if not bool(written%10000):
+            date = '%02d:%02d:%02d' % (time.localtime().tm_hour, time.localtime().tm_min, time.localtime().tm_sec)
+            sys.stderr.write('%s %d\n' % (date, written))
+
