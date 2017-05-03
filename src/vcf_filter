@@ -12,9 +12,6 @@ def get_options():
     parser = argparse.ArgumentParser(description = description,
                                      prog = 'vcf_filter')
 
-    parser.add_argument('vcf', action='store',
-                        help='VCF file')
-
     parser.add_argument('--version', action='version',
                          version='%(prog)s '+__version__)
 
@@ -29,7 +26,7 @@ if __name__ == "__main__":
 
     options = get_options()
 
-    vcf_reader = vcf.Reader(open(options.vcf, 'r'))
+    vcf_reader = vcf.Reader(sys.stdin)
     vcf_writer = vcf.Writer(sys.stdout, vcf_reader)
     written = 0
     for record in vcf_reader:
