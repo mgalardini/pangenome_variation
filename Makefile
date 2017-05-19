@@ -486,44 +486,9 @@ $(WEIGHTS): $(SVMALPHA)
 	$(GKDIR)/gkmsvm_classify -d 3 $(GKDIR)/nr10.fasta $(SVSEQ) $(SVMALPHA) $(GKDIR)/nr10_scores.txt
 	$(SRCDIR)/generate_weights $(GKDIR)/nr10_scores.txt > $(WEIGHTS)
 
-########################
-## Reports generation ##
-########################
-
-NPANGENOME = $(NOTEBOOKDIR)/pangenome.ipynb
-RPANGENOME = $(NOTEBOOKDIR)/pangenome.html
-$(RPANGENOME): $(NPANGENOME) $(CONSERVATION) $(APPROXPANGENOME) $(ROARYOUT) $(TREE) $(TREERESTRICTED)
-	runipy -o $(NPANGENOME) && \
-	cd $(NOTEBOOKDIR) && ipython nbconvert --to=html $(notdir $(NPANGENOME)) --template html.tpl && cd $(CURDIR) && \
-	git add $(NPANGENOME) && \
-	git commit -m "Updated pangenome report" && \
-	git push
-
-NSNPS = $(NOTEBOOKDIR)/SNPs.ipynb
-RSNPS = $(NOTEBOOKDIR)/SNPs.html
-$(RSNPS): $(KVCFS) $(PVCFS) $(MVCFS) $(GBK) $(CONSERVATION)
-	runipy -o $(NSNPS) && \
-	cd $(NOTEBOOKDIR) && ipython nbconvert --to=html $(notdir $(NSNPS)) --template html.tpl && cd $(CURDIR) && \
-	git add $(NSNPS) && \
-	git commit -m "Updated snps report" && \
-	git push
-
-NSNPSM = $(NOTEBOOKDIR)/SNPs_matrix.ipynb
-RSNPSM = $(NOTEBOOKDIR)/SNPs_matrix.html
-$(RSNPSM): $(PVCFS) $(GBK) $(CONSERVATION) $(TREERESTRICTED)
-	runipy -o $(NSNPSM) && \
-	cd $(NOTEBOOKDIR) && ipython nbconvert --to=html $(notdir $(NSNPSM)) --template html.tpl && cd $(CURDIR) && \
-	git add $(NSNPSM) && \
-	git commit -m "Updated snps matrix report" && \
-	git push
-
-NSTOP = $(NOTEBOOKDIR)/stop_codons.ipynb
-RSTOP = $(NOTEBOOKDIR)/stop_codons.html
-$(RSTOP): $(PVCFS) $(GBK)
-	runipy -o $(NSTOP) && \
-	cd $(NOTEBOOKDIR) && ipython nbconvert --to=html $(notdir $(NSTOP)) --template html.tpl && cd $(CURDIR) && \
-	git add $(NSTOP) && \
-#########################
+#############
+## Targets ##
+#############
 
 all: ksnp parsnp map conservation oma kmers roary
 ksnp: $(KVCFS)
