@@ -1,17 +1,47 @@
 pangenome_variation
 ===================
 
-???
+Scripts and pipeline to inspect genetic variation in a series of bacterial genomes
+
+Note
+----
+
+The pipeline and scripts come with limited documentation.
+Please do get in touch with the author (Marco Galardini, marco@ebi.ac.uk) if you need any guidance.
 
 Usage
 -----
 
-???
+A reference genome in FASTA and Genbank format is needed
+(deafult filenames are genome.fasta and genome.gbk).
+All the genomes to be analysed should be assemblies: place 
+nucleotides fasta files in the `genomes` directory
+(`genomes/*.fasta`), protein fasta files in the `proteomes` directory
+(`proteomes/*.faa`) and gff files in the `gff` directory (`gff/*.gff`).
+We reccommend using prokka to generate the `.faa` and `.gff` files.
 
-Prerequisites
+The makefile contains the various bits of the pipeline:
+* `make tree`: core genome alignment phylogenetic tree
+* `make roary`: pangenome
+* `make oma`: pairwise pangenome for each strain against the reference
+* `make nonsyn stop`: pairwise alignment of each strain agains the reference to derive SNPs
+
+You might want to type `make -n TARGET` first to make sure which commands are gonna be launched
+
+(minimum) prerequisites
 -------------
 
-???
+* prokka
+* parsnp and harvest
+* snpeff
+* roary
+* oma
+* python (2.7+ AND 3.3+), plus the following libraries:
+    * biopython
+    * bcbio-gff
+    * numpy
+    * pandas
+    * pyvcf
 
 Copyright
 ---------
