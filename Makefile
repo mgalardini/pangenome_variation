@@ -455,7 +455,7 @@ $(MASHDISTANCES): $(GENOME) $(MASHDIR)
 	echo ../$(notdir $(GENOME)) > genomes.txt && \
 	ls $(TARGETSDIR)/*.fasta >> genomes.txt && \
 	mash sketch -l genomes.txt -o genomes -p $(MCPU) && \
-	mash dist genomes.msh genomes.msh -p $(MCPU) > $(MASHDISTANCES)
+	mash dist genomes.msh genomes.msh -p $(MCPU) | python -c "import os;import sys;print('\n'.join([os.path.split(l.split('\t')[0])[-1].split('_')[0].split('.')[0] + '\t' + os.path.split(l.split('\t')[1])[-1].split('_')[0].split('.')[0] + '\t' + '\t'.join(l.rstrip().split('\t')[2:]) for l in sys.stdin]))" > $(MASHDISTANCES)
 
 ####################
 ## RegulonDB data ##
