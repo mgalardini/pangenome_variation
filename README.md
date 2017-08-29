@@ -21,7 +21,7 @@ nucleotides fasta files in the `genomes` directory
 We reccommend using prokka to generate the `.faa` and `.gff` files.
 
 The makefile contains the various bits of the pipeline:
-* `make tree`: core genome alignment phylogenetic tree
+* `make tree`: core genome alignment phylogenetic tree and mash whole genome kmer distance
 * `make roary`: pangenome
 * `make oma`: pairwise pangenome for each strain against the reference
 * `make nonsyn stop`: pairwise alignment of each strain agains the reference to derive SNPs
@@ -33,6 +33,7 @@ You might want to type `make -n TARGET` first to make sure which commands are go
 
 * prokka
 * parsnp and harvest
+* mash
 * snpeff
 * roary
 * oma
