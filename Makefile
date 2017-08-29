@@ -62,6 +62,8 @@ SNPEFFDIR = $(CURDIR)/snpEff
 OUTGROUPS = outgroups.txt
 # Evolution experiments
 EVOLUTION = evolution_experiment.txt
+# Mash
+MASHDIR = $(CURDIR)/mash
 
 # Useful handle for submission to a cluster
 SUBMIT = eval
@@ -103,6 +105,8 @@ SPECIES = ecoli
 THETA = 0.05
 # How many chromosomal copies?
 PLOIDY = 1
+# MASH CPUS
+MCPU = 5
 
 # Anything below this point should not be changed
 $(TARGETSDIR): $(GENOME)
@@ -438,6 +442,20 @@ $(TREE): $(GENOME) $(TOUT)
 	$(PARSNP)/parsnp -r $(TOUT)/input/$(notdir $(GENOME)) -d $(TOUT)/input -p $(PCPU) -v -c -o $(TOUT)/output && \
 	rm -rf $(TOUT)/input/
 
+###################################
+## Strains distance (using mash) ##
+###################################
+
+$(MASHDIR):
+	mkdir -p $(MASHDIR)
+
+MASHDISTANCES = $(MASHDIR)/distances.tab
+$(MASHDISTANCES): $(GENOME) $(MASHDIR)
+	cd $(MASHDIR) && \
+	echo ../$(notdir $(GENOME)) > genomes.txt && \
+	ls $(TARGETSDIR)/*.fasta >> genomes.txt && \
+	mash sketch -l genomes.txt -o genomes -p $(MCPU) && \
+	mash dist genomes.msh genomes.msh -p $(MCPU) > $(MASHDISTANCES)
 
 ####################
 ## RegulonDB data ##
@@ -501,7 +519,7 @@ oma: $(OTSV)
 kmers: $(KTABLE)
 fsm: $(KLITETABLE)
 roary: $(ROARYOUT)
-tree: $(TREE)
+tree: $(TREE) $(MASHDISTANCES)
 nonsyn: $(PNONSYNVCFS)
 tfbs: $(MTFBSVCFS) $(PTFBSVCFS)
 stop: $(PSTOPVCFS) 
